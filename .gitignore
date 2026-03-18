@@ -1,0 +1,17 @@
+*.log
+.omc/
+*.csv
+browser_profile/
+krx_raw_*.json
+*.xlsx
+
+# Node.js
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
