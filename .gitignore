@@ -1,4 +1,5 @@
 *.log
+CLAUDE.md.backup.*
 .omc/
 *.csv
 browser_profile/
