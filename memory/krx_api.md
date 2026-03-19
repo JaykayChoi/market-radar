@@ -1,36 +1,42 @@
 ---
 name: krx_api_notes
-description: KRX data portal API patterns, working bld codes, known broken codes, and investor type codes
+description: KRX data portal API patterns, bld codes, 투자자구분 코드, SQLite 스키마
 type: reference
 ---
 
 ## Endpoint
-All KRX data fetched via POST to:
+
+모든 KRX 데이터는 POST 요청:
 `https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd`
 
-Form body includes `bld` parameter (identifies the dataset) plus date/filter params.
+Form body에 `bld` 파라미터(데이터셋 식별) + 날짜/필터 파라미터 포함.
+인증: `browser_profile/`의 Chromium persistent session 쿠키 (별도 API 키 없음).
+응답 형식: `{"output": [...]}` — 배열은 `output` 키에 있음 (`data` 아님).
 
-## Response Interceptor Pattern
-Navigate Playwright to KRX menu page → intercept network requests → capture `bld` + POST body → replay with modified dates directly via `fetch()`.
+## Response Interceptor 패턴
 
-Key: update `last_req` dict on EVERY request; only copy to `captured_req` when response has >500 rows containing the target column (e.g., `TDD_CLSPRC`). This prevents capturing the wrong bld from an early navigation request.
+Playwright로 KRX 메뉴 페이지 이동 → 네트워크 요청 인터셉트 → `bld` + POST body 캡처 → 날짜 변경 후 `fetch()`로 직접 재호출.
 
-## KRX Menu Pages → bld Codes
+핵심: 모든 요청에서 `last_req` 갱신, 응답에 목표 컬럼(예: `TDD_CLSPRC`) 포함 + 500행 이상일 때만 `captured_req`로 복사. (잘못된 bld 캡처 방지)
 
-| Menu Page ID    | Description         | bld Code        |
-|-----------------|---------------------|-----------------|
-| MDC0201030101   | ETF 시세             | MDCSTAT04301    |
-| MDC0201030101   | ETF 기본정보          | MDCSTAT04601    |
-| MDC0201020303   | 외국인/기관 순매수     | MDCSTAT02401    |
-| MDC0201020105   | 전종목 주식종가        | MDCSTAT18801    |
-| MDC0201010101   | 업종별 등락률          | (intercepted)   |
+## KRX 메뉴 ID → bld 코드
 
-## BROKEN: Do NOT use
-- `MDCSTAT01501` — always returns 0 rows regardless of session/date. Confirmed broken.
-  Use `MDCSTAT18801` (from MDC0201020105) instead for stock prices.
+| Menu Page ID    | 설명                  | bld Code      |
+|-----------------|-----------------------|---------------|
+| MDC0201030101   | ETF 시세               | MDCSTAT04301  |
+| MDC0201030101   | ETF 기본정보            | MDCSTAT04601  |
+| MDC0201020303   | 외국인/기관 순매수       | MDCSTAT02401  |
+| MDC0201020105   | 전종목 주식종가          | MDCSTAT18801  |
+| MDC0201010101   | 업종별 등락률           | (인터셉트)     |
 
-## MDCSTAT02401 투자자구분 코드 (실제 확인값)
-페이지 select에서 자동 추출됨. 코드가 예상과 다르니 반드시 이 목록 참고:
+## 사용 불가
+
+- `MDCSTAT01501` — 세션/날짜 무관하게 항상 0행 반환. **사용 금지.**
+  주식 종가는 `MDCSTAT18801` (MDC0201020105) 사용.
+
+## 투자자구분 코드 (MDCSTAT02401)
+
+페이지 select에서 자동 추출. 코드가 직관적이지 않으므로 참고:
 
 | 코드  | 투자자구분  |
 |-------|------------|
@@ -48,25 +54,24 @@ Key: update `last_req` dict on EVERY request; only copy to `captured_req` when r
 | 9001  | 기타외국인  |
 | 9999  | 전체        |
 
-주의: 기관합계=7050 (8000 아님), 사모=3100 (4000 아님), 개인=8000
-collector는 페이지 select에서 자동 추출하므로 코드 변경 시 자동 반영됨.
+주의: 기관합계=7050, 사모=3100, 개인=8000. collector가 페이지에서 자동 추출하므로 코드 변경 시 자동 반영됨.
 
-## Business Day Calculation
-`prev_biz_days(base, n)` — counts exactly n trading days back using weekends-only (no holiday calendar). Matches KRX behavior for date range queries.
+## 영업일 계산
 
-## ETF 순설정액 Formula
+`prev_biz_days(base, n)` — 주말만 제외, 공휴일 달력 없음. KRX 날짜 범위 쿼리 동작과 일치.
+
+## ETF 순설정액 산식
+
 `(오늘상장주수 - 이전상장주수) × 이전NAV / 1e8`
-Strips price effect — measures actual fund flows, not market value change.
+주가 상승 효과 제거 — 실제 자금 유입/유출만 측정.
 
-## SQLite Schema
-- `etf_prices` — daily ETF price/volume data
-- `etf_info` — ETF metadata (irp_eligible flag included)
-- `foreign_flow` — 투자자별 순매수, investor_type = KRX 코드 문자열 (e.g. '9000', '7050')
-- `stock_prices` — full market stock prices
-- `industry` — 업종별 등락률
-- `collected_date` — 수집 완료 날짜 기록
+## SQLite 테이블
 
-## foreign_flow 스키마 마이그레이션 이력
-- 1차: date → start_date/end_date (기간별 저장)
-- 2차: investor_type 'foreign'/'institution' 문자열 → KRX 코드 ('9000', '7050' 등)
-  db.js 시작 시 구형 데이터 자동 삭제 후 재수집 필요
+| 테이블명          | 내용                                      |
+|-------------------|-------------------------------------------|
+| `etf_prices`      | ETF 일별 시세/상장주수                     |
+| `etf_info`        | ETF 기본정보 (irp_eligible 포함)           |
+| `investor_netbuy` | 투자자별 순매수 (investor_type = KRX 코드) |
+| `stock_prices`    | 전종목 종가                                |
+| `industry`        | 업종별 지수/등락률                         |
+| `collected_dates` | 수집 완료 날짜 기록                        |

@@ -1,58 +1,89 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with code in this repository.
 
-## Running the script
+## Running the app
 
 ```bash
-py market_radar.py
+npm run dev      # dev mode: Express (port 3000) + Vite (port 5173) concurrently
+npm run start    # production: vite build + node server/index.js
 ```
 
-No build step. Dependencies: `playwright`, `pandas`, `openpyxl`.
+## What this is
 
-## What this does
+Web dashboard that collects KRX (한국거래소) market data via browser automation and displays it in a React UI.
 
-Single-script tool that collects KRX (한국거래소) market data via browser automation and produces 6 Excel files:
+## Stack
 
-- `최근3일_IRP_ETF순설정액_YYYYMMDD.xlsx`
-- `최근5일_IRP_ETF순설정액_YYYYMMDD.xlsx`
-- `최근7일_IRP_ETF순설정액_YYYYMMDD.xlsx`
-- `최근3일_외국인순매수상위100_YYYYMMDD.xlsx`
-- `최근5일_외국인순매수상위100_YYYYMMDD.xlsx`
-- `최근7일_외국인순매수상위100_YYYYMMDD.xlsx`
+- **Frontend**: React 18 + Vite + Tailwind CSS + Recharts (`src/`)
+- **Backend**: Node.js + Express (`server/`)
+- **Database**: SQLite via better-sqlite3 (`data/market_radar.db`)
+- **Browser automation**: Playwright (Chromium, persistent profile at `browser_profile/`)
+- **Dev proxy**: Vite proxies `/api` → `localhost:3000`
 
-All periods are **영업일(business days)** — e.g. 7일 = 7 trading days back, not calendar days.
+## Project structure
 
-## Architecture
+```
+server/
+  index.js              — Express entry point (port 3000)
+  collector/
+    browser.js          — Playwright browser launch + KRX login session
+    etf.js              — ETF 시세 collection (MDCSTAT04301, MDCSTAT04601)
+    foreign.js          — 외국인/기관 순매수 collection (response intercept)
+    stock.js            — 전종목 주식 종가 collection (MDCSTAT18801)
+    industry.js         — 업종별 등락률 collection
+  processor/
+    etf.js              — ETF data transformation → SQLite
+    foreign.js          — 투자자별 순매수 transformation → SQLite
+  routes/
+    collect.js          — POST /api/collect, GET /api/collect/progress (SSE)
+    data.js             — GET /api/data/:type
+    export.js           — GET /api/export/excel/:type
+  storage/
+    db.js               — All SQLite read/write operations
+src/
+  App.jsx               — Root: tab nav, date range picker, collect button
+  components/
+    CollectButton.jsx
+    DataTable.jsx
+    DateRangePicker.jsx
+    tabs/
+      EtfTab.jsx        — ETF 순자산변화 탭
+      InvestorTab.jsx   — 투자자별 순매수 탭
+data/
+  market_radar.db       — SQLite DB (git-ignored)
+  raw/                  — Raw JSON snapshots per collection run
+browser_profile/        — Chromium persistent profile (KRX login session)
+```
 
-The script has four sequential phases:
+## Current tabs
 
-**Phase 1 — `collect_all()` (browser)**
-Launches a persistent Chromium profile (`browser_profile/`) via Playwright to maintain KRX login session across runs. Navigates to three KRX pages and intercepts API responses:
+| Tab | 내용 |
+|---|---|
+| ETF 순자산변화 | IRP 적격 ETF 순설정액 (주가효과 제거), 테마 분류 |
+| 투자자별 순매수 | 외국인/기관 순매수 상위 종목, 기간: 1일/3일/1주/2주 |
 
-| KRX menu ID | Data captured | bld (API code) |
-|---|---|---|
-| `MDC0201030101` | ETF 전종목 시세 (4 dates) | `MDCSTAT04301`, `MDCSTAT04601` |
-| `MDC0201020303` | 외국인 순매수 상위종목 | `MDCSTAT02401` (response interceptor) |
-| `MDC0201020105` | 전종목 주식 종가 | `MDCSTAT18801` (response interceptor) |
+## Collection flow
 
-All data is fetched via `fetch_json()`, which calls `/comm/bldAttendant/getJsonData.cmd` via `page.evaluate()` to reuse the browser's authenticated session. Raw data is saved to `krx_raw_YYYYMMDD.json`.
-
-**Why response interceptors for 외국인/주식**: These pages load with default parameters on page load; the interceptor captures the exact bld + params the page uses, then replays the request with modified date parameters for other periods.
-
-**Phase 2 — `process_etf()`**
-Merges today + N-days-ago ETF data. Key metric: `순자산변화_가격제외 = (오늘상장주수 - 이전상장주수) × 이전NAV / 1e8` — this strips out price appreciation to show pure capital flow. Filters out IRP-ineligible ETFs (leveraged, inverse, futures-based).
-
-**Phase 3 — `process_foreign()`**
-Sorts 외국인 순매수 by `NETBID_TRDVAL`, takes top 100, computes period stock return using `build_price_map()` on the `MDCSTAT18801` stock price data.
-
-**Phase 4 — `save_excel()`**
-Writes xlsx with auto-column widths and 2-row title headers.
+`POST /api/collect` → SSE progress stream → Playwright collects:
+1. ETF 시세 (all dates in range)
+2. 외국인/기관 순매수 (4 periods: 1일전, 3일전, 1주전, 2주전)
+3. 전종목 주식 종가
+4. 업종별 등락률
 
 ## KRX API notes
 
 - Base URL: `https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd` (POST)
-- Auth: session cookies from the persistent browser profile (no API key)
-- Response format: `{"output": [...]}` — the array is in `output`, not `data`
-- `MDCSTAT02401` and `MDCSTAT18801` are discovered via response interception at page load; their bld codes and params should not be hardcoded as they may vary by session state
-- `MDCSTAT01501` (the "official" stock price bld) returns 0 rows regardless of session — use `MDCSTAT18801` from `MDC0201020105` instead
+- Auth: session cookies from persistent browser profile (no API key)
+- Response format: `{"output": [...]}` — array is in `output`, not `data`
+- `foreign.js` and `stock.js` use response interception at page load to discover bld codes dynamically — do NOT hardcode these
+- `MDCSTAT01501` returns 0 rows regardless of session — use `MDCSTAT18801` from `MDC0201020105`
+
+## SQLite tables
+
+- `etf_prices` — daily ETF NAV/상장주수 snapshots
+- `etf_info` — ETF 기본정보 (자산분류, IRP 적격 여부)
+- `investor_netbuy` — 투자자별 순매수 (외국인/기관 등)
+- `stock_prices` — 전종목 종가
+- `industry` — 업종별 지수
+- `collected_dates` — 수집 완료 날짜 기록
