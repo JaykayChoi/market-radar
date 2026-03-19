@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code when working with code in this repository.
 
+## Session start
+
+**세션 시작 시 반드시 `memory/status.md`를 읽어 현재 구현 진행 상태를 파악할 것.**
+
 ## Running the app
 
 ```bash
