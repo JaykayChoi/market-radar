@@ -1,0 +1,213 @@
+const express = require('express')
+const router = express.Router()
+const { v4: uuidv4 } = require('uuid')
+const path = require('path')
+const fs = require('fs')
+
+let isCollecting = false
+let lockAcquiredAt = null
+let currentSessionId = null
+let sessionEvents = new Map()
+const sseClients = new Set()
+const LOCK_TTL = 10 * 60 * 1000
+
+function isLockValid() {
+  return isCollecting && lockAcquiredAt && (Date.now() - lockAcquiredAt) < LOCK_TTL
+}
+
+function releaseLock() {
+  isCollecting = false
+  lockAcquiredAt = null
+}
+
+let eventCounter = 0
+function emitProgress(sessionId, stage, total, label, status, error = null) {
+  const id = String(++eventCounter)
+  const event = { id, stage, total, label, status }
+  if (error) event.error = error
+
+  if (!sessionEvents.has(sessionId)) sessionEvents.set(sessionId, [])
+  sessionEvents.get(sessionId).push(event)
+
+  const data = `id: ${id}\ndata: ${JSON.stringify(event)}\n\n`
+  for (const res of sseClients) {
+    try { res.write(data) } catch (e) { sseClients.delete(res) }
+  }
+}
+
+function parseDate(str) {
+  return new Date(str.slice(0,4), str.slice(4,6)-1, str.slice(6,8))
+}
+
+function formatDate(d) {
+  return d.getFullYear().toString() +
+    String(d.getMonth()+1).padStart(2,'0') +
+    String(d.getDate()).padStart(2,'0')
+}
+
+function getBusinessDays(startStr, endStr) {
+  const days = []
+  const start = parseDate(startStr)
+  const end = parseDate(endStr)
+  const cur = new Date(start)
+  while (cur <= end) {
+    const dow = cur.getDay()
+    if (dow !== 0 && dow !== 6) days.push(formatDate(cur))
+    cur.setDate(cur.getDate() + 1)
+  }
+  return days
+}
+
+// 버튼 기준과 동일한 기간 계산 (DateRangePicker.jsx 의 QUICK_BUTTONS)
+function bizDaysBack(endStr, n) {
+  const d = parseDate(endStr)
+  let count = 0
+  while (count < n) {
+    d.setDate(d.getDate() - 1)
+    if (d.getDay() !== 0 && d.getDay() !== 6) count++
+  }
+  return formatDate(d)
+}
+
+function calDaysBack(endStr, n) {
+  const d = parseDate(endStr)
+  d.setDate(d.getDate() - n)
+  return formatDate(d)
+}
+
+async function runCollection(sessionId, startDate, endDate) {
+  const db = require('../storage/db')
+  const { getPage, closeBrowser, ensureLoggedIn } = require('../collector/browser')
+  const { collectEtf } = require('../collector/etf')
+  const { collectForeign } = require('../collector/foreign')
+  const { collectStock } = require('../collector/stock')
+  const { collectIndustry } = require('../collector/industry')
+  const { processEtf } = require('../processor/etf')
+  const { processForeign } = require('../processor/foreign')
+
+  const TOTAL = 5
+  const rawDir = path.join(__dirname, '../../data/raw')
+  if (!fs.existsSync(rawDir)) fs.mkdirSync(rawDir, { recursive: true })
+
+  const days = getBusinessDays(startDate, endDate)
+  const today = endDate
+  const allDates = [today, ...days.filter(d => d !== today)]
+
+  try {
+    console.log(`[collect] 수집 시작: ${startDate} ~ ${endDate}, ${allDates.length}개 날짜`)
+    emitProgress(sessionId, 0, TOTAL, '브라우저 시작 중...', 'running')
+
+    const page = await getPage()
+    await ensureLoggedIn(page)
+
+    // 1. ETF
+    emitProgress(sessionId, 1, TOTAL, 'ETF 시세 수집 중...', 'running')
+    const etfData = await collectEtf(page, allDates)
+    processEtf(etfData.prices, etfData.info, db)
+    fs.writeFileSync(path.join(rawDir, `krx_raw_${today}_etf.json`), JSON.stringify(etfData))
+    emitProgress(sessionId, 1, TOTAL, 'ETF 시세 완료', 'running')
+
+    // 2. 외국인 + 기관 (4개 기간 모두 수집)
+    emitProgress(sessionId, 2, TOTAL, '외국인 순매수 수집 중...', 'running')
+    const foreignPeriods = [
+      { label: '1일전(영업일)', start: bizDaysBack(today, 1) },
+      { label: '3일전(영업일)', start: bizDaysBack(today, 3) },
+      { label: '1주전',         start: calDaysBack(today, 7) },
+      { label: '2주전',         start: calDaysBack(today, 14) },
+    ]
+    const allForeignRaw = {}
+    for (const period of foreignPeriods) {
+      const data = await collectForeign(page, period.start, today)
+      processForeign(data.investorTypes, data.results, period.start, today, db)
+      allForeignRaw[`${period.start}~${today}`] = data
+    }
+    fs.writeFileSync(path.join(rawDir, `krx_raw_${today}_foreign.json`), JSON.stringify(allForeignRaw))
+    emitProgress(sessionId, 2, TOTAL, '투자자별 순매수 완료', 'running')
+
+    emitProgress(sessionId, 3, TOTAL, '투자자별 순매수 완료', 'running')
+
+    // 3. 주식 종가
+    emitProgress(sessionId, 4, TOTAL, '주식 종가 수집 중...', 'running')
+    const stockData = await collectStock(page, allDates)
+    const toNum = s => parseFloat(String(s || '').replace(/,/g, '')) || 0
+    db.upsertStockPrices(Object.entries(stockData).flatMap(([date, rows]) =>
+      rows.map(r => ({ date, code: r.ISU_SRT_CD || r.ISU_CD, close_price: toNum(r.TDD_CLSPRC || r.CLSPRC) }))
+    ))
+    fs.writeFileSync(path.join(rawDir, `krx_raw_${today}_stock.json`), JSON.stringify(stockData))
+    emitProgress(sessionId, 3, TOTAL, '기관 순매수 완료', 'running')
+    emitProgress(sessionId, 4, TOTAL, '주식 종가 완료', 'running')
+
+    // 4. 업종별
+    emitProgress(sessionId, 5, TOTAL, '업종별 등락률 수집 중...', 'running')
+    const industryData = await collectIndustry(page, allDates)
+    db.upsertIndustry(Object.entries(industryData).flatMap(([date, rows]) =>
+      rows.map(r => ({
+        date,
+        index_name: r.IDX_NM || r.IDX_IND_NM || r.index_name,
+        close: parseFloat(r.CLSPRC_IDX || r.CLSPRC) || 0,
+        change_rate: parseFloat(r.FLUC_RT) || 0,
+        open: parseFloat(r.OPNPRC_IDX || r.OPNPRC) || 0,
+        high: parseFloat(r.HGPRC_IDX || r.HGPRC) || 0,
+        low: parseFloat(r.LWPRC_IDX || r.LWPRC) || 0
+      }))
+    ))
+    fs.writeFileSync(path.join(rawDir, `krx_raw_${today}_industry.json`), JSON.stringify(industryData))
+
+    db.upsertCollectedDate(today, JSON.stringify(['etf','foreign','institution','stock','industry']))
+    console.log(`[collect] 완료: ${today}`)
+
+    await closeBrowser()
+    emitProgress(sessionId, 5, TOTAL, '완료', 'done')
+
+  } catch (err) {
+    console.error('[collect] 오류:', err)
+    try { await closeBrowser() } catch {}
+    emitProgress(sessionId, -1, TOTAL, '수집 오류: ' + err.message, 'error', err.message)
+  } finally {
+    releaseLock()
+  }
+}
+
+// POST /api/collect — 수집 시작
+router.post('/', async (req, res) => {
+  if (isLockValid()) {
+    return res.status(409).json({ ok: false, message: '수집 진행 중' })
+  }
+  isCollecting = true
+  lockAcquiredAt = Date.now()
+  currentSessionId = uuidv4()
+
+  const { start, end } = req.body
+  const startDate = start || formatDate(new Date())
+  const endDate = end || formatDate(new Date())
+
+  res.json({ ok: true, sessionId: currentSessionId })
+
+  runCollection(currentSessionId, startDate, endDate).catch(console.error)
+})
+
+// GET /api/collect/progress — SSE
+router.get('/progress', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Connection', 'keep-alive')
+  res.flushHeaders()
+
+  sseClients.add(res)
+
+  // 현재 세션의 기존 이벤트 전부 재전송 (SSE 연결 전 이벤트 누락 방지)
+  if (currentSessionId && sessionEvents.has(currentSessionId)) {
+    const events = sessionEvents.get(currentSessionId)
+    const lastId = req.headers['last-event-id']
+    const fromIdx = lastId
+      ? (events.findIndex(e => e.id === lastId) + 1)
+      : 0
+    for (const ev of events.slice(fromIdx)) {
+      res.write(`id: ${ev.id}\ndata: ${JSON.stringify(ev)}\n\n`)
+    }
+  }
+
+  req.on('close', () => { sseClients.delete(res) })
+})
+
+module.exports = router

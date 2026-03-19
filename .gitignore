@@ -1,10 +1,23 @@
+# 로그
 *.log
+
+# Claude / OMC
 CLAUDE.md.backup.*
 .omc/
-*.csv
+.claude/settings.local.json
+
+# 브라우저 프로필 (KRX 로그인 세션)
 browser_profile/
+
+# 수집 데이터 (DB, raw JSON)
+data/
+
+# 구 raw JSON (루트 위치)
 krx_raw_*.json
+
+# Excel 출력물 및 Windows 잠금 파일
 *.xlsx
+~$*.xlsx
 
 # Node.js
 node_modules/
