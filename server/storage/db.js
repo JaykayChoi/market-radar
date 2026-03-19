@@ -87,6 +87,42 @@ db.exec(`
     low REAL,
     PRIMARY KEY (date, index_name)
   );
+
+  CREATE TABLE IF NOT EXISTS short_balance (
+    date TEXT,
+    code TEXT,
+    name TEXT,
+    balance_qty INTEGER,
+    balance_amt REAL,
+    balance_ratio REAL,
+    PRIMARY KEY (date, code)
+  );
+
+  CREATE TABLE IF NOT EXISTS short_trade (
+    date TEXT,
+    code TEXT,
+    name TEXT,
+    short_vol INTEGER,
+    total_vol INTEGER,
+    vol_ratio REAL,
+    short_val REAL,
+    total_val REAL,
+    val_ratio REAL,
+    PRIMARY KEY (date, code)
+  );
+
+  CREATE TABLE IF NOT EXISTS program_trade (
+    date TEXT,
+    code TEXT,
+    name TEXT,
+    arb_buy REAL,
+    arb_sell REAL,
+    arb_net REAL,
+    nonarb_buy REAL,
+    nonarb_sell REAL,
+    nonarb_net REAL,
+    PRIMARY KEY (date, code)
+  );
 `)
 
 const upsertEtfPrices = (rows) => {
@@ -129,6 +165,33 @@ const upsertIndustry = (rows) => {
   const stmt = db.prepare(`
     INSERT OR REPLACE INTO industry (date, index_name, close, change_rate, open, high, low)
     VALUES (@date, @index_name, @close, @change_rate, @open, @high, @low)
+  `)
+  const insertMany = db.transaction((rows) => { for (const r of rows) stmt.run(r) })
+  insertMany(rows)
+}
+
+const upsertShortBalance = (rows) => {
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO short_balance (date, code, name, balance_qty, balance_amt, balance_ratio)
+    VALUES (@date, @code, @name, @balance_qty, @balance_amt, @balance_ratio)
+  `)
+  const insertMany = db.transaction((rows) => { for (const r of rows) stmt.run(r) })
+  insertMany(rows)
+}
+
+const upsertShortTrade = (rows) => {
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO short_trade (date, code, name, short_vol, total_vol, vol_ratio, short_val, total_val, val_ratio)
+    VALUES (@date, @code, @name, @short_vol, @total_vol, @vol_ratio, @short_val, @total_val, @val_ratio)
+  `)
+  const insertMany = db.transaction((rows) => { for (const r of rows) stmt.run(r) })
+  insertMany(rows)
+}
+
+const upsertProgramTrade = (rows) => {
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO program_trade (date, code, name, arb_buy, arb_sell, arb_net, nonarb_buy, nonarb_sell, nonarb_net)
+    VALUES (@date, @code, @name, @arb_buy, @arb_sell, @arb_net, @nonarb_buy, @nonarb_sell, @nonarb_net)
   `)
   const insertMany = db.transaction((rows) => { for (const r of rows) stmt.run(r) })
   insertMany(rows)
@@ -181,6 +244,33 @@ const getIndustryData = (start, end) => {
   `).all(start || '19000101', end || '99991231')
 }
 
+const getShortBalanceData = (start, end) => {
+  return db.prepare(`
+    SELECT date, code, name, balance_qty, balance_amt, balance_ratio
+    FROM short_balance
+    WHERE date >= ? AND date <= ?
+    ORDER BY date DESC, balance_amt DESC
+  `).all(start || '19000101', end || '99991231')
+}
+
+const getShortTradeData = (start, end) => {
+  return db.prepare(`
+    SELECT date, code, name, short_vol, total_vol, vol_ratio, short_val, total_val, val_ratio
+    FROM short_trade
+    WHERE date >= ? AND date <= ?
+    ORDER BY date DESC, val_ratio DESC
+  `).all(start || '19000101', end || '99991231')
+}
+
+const getProgramTradeData = (start, end) => {
+  return db.prepare(`
+    SELECT date, code, name, arb_buy, arb_sell, arb_net, nonarb_buy, nonarb_sell, nonarb_net
+    FROM program_trade
+    WHERE date >= ? AND date <= ?
+    ORDER BY date DESC, (arb_net + nonarb_net) DESC
+  `).all(start || '19000101', end || '99991231')
+}
+
 const getCollectedDates = (start, end) => {
   return db.prepare(`
     SELECT date, collected_at, stages_ok
@@ -215,11 +305,17 @@ module.exports = {
   upsertForeignFlow,
   upsertStockPrices,
   upsertIndustry,
+  upsertShortBalance,
+  upsertShortTrade,
+  upsertProgramTrade,
   upsertCollectedDate,
   getEtfData,
   getForeignData,
   getStockData,
   getIndustryData,
+  getShortBalanceData,
+  getShortTradeData,
+  getProgramTradeData,
   getCollectedDates,
   getNearestPriorDate,
   getInvestorTypes,
