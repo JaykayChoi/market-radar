@@ -17,20 +17,19 @@ const MARKETS = [
   { id: 'kosdaq', label: '코스닥' },
 ]
 
-export default function VolumeSurgeTab({ dateRange }) {
+export default function VolumeSurgeTab() {
   const [rawData, setRawData] = useState([])
   const [loading, setLoading] = useState(false)
   const [market, setMarket] = useState('all')
 
   useEffect(() => {
-    if (!dateRange.start || !dateRange.end) return
     setLoading(true)
-    fetch(`/api/data/volume_surge?start=${dateRange.start}&end=${dateRange.end}`)
+    fetch('/api/naver/volume_surge')
       .then(r => r.json())
       .then(res => setRawData(Array.isArray(res.data) ? res.data : []))
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [dateRange.start, dateRange.end])
+  }, [])
 
   const data = useMemo(() => {
     if (market === 'all') return rawData

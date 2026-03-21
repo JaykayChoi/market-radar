@@ -83,11 +83,10 @@ async function runCollection(sessionId, startDate, endDate) {
   const { collectStock } = require('../collector/stock')
   const { collectIndustry } = require('../collector/industry')
   const { collectShortBalance, collectShortTrade } = require('../collector/shortstock')
-  const { collectVolumeSurge } = require('../collector/naver_quant')
   const { processEtf } = require('../processor/etf')
   const { processForeign } = require('../processor/foreign')
 
-  const TOTAL = 7
+  const TOTAL = 6
   const rawDir = path.join(__dirname, '../../data/raw')
   if (!fs.existsSync(rawDir)) fs.mkdirSync(rawDir, { recursive: true })
 
@@ -195,25 +194,11 @@ async function runCollection(sessionId, startDate, endDate) {
     fs.writeFileSync(path.join(rawDir, `krx_raw_${today}_short.json`), JSON.stringify({ shortBalanceRaw, shortTradeRaw }))
     emitProgress(sessionId, 5, TOTAL, '공매도 데이터 완료', 'running')
 
-    // 6. 거래량 급등 (네이버금융 — 브라우저 불필요)
-    emitProgress(sessionId, 6, TOTAL, '거래량 급등 수집 중...', 'running')
-    try {
-      const surgeData = await collectVolumeSurge(today)
-      const surgeRows = Object.entries(surgeData).flatMap(([market, rows]) =>
-        rows.map(r => ({ ...r, date: today, market }))
-      )
-      if (surgeRows.length > 0) db.upsertVolumeSurge(surgeRows)
-      else console.warn('[collect] 거래량 급등 0건 — upsert 생략')
-    } catch (err) {
-      console.warn('[collect] 거래량 급등 수집 실패 (skip):', err.message)
-    }
-    emitProgress(sessionId, 6, TOTAL, '거래량 급등 완료', 'running')
-
-    db.upsertCollectedDate(today, ['etf','foreign','stock','industry','short_balance','short_trade','volume_surge'])
+    db.upsertCollectedDate(today, ['etf','foreign','stock','industry','short_balance','short_trade'])
     console.log(`[collect] 완료: ${today}`)
 
     await closeBrowser()
-    emitProgress(sessionId, 7, TOTAL, '완료', 'done')
+    emitProgress(sessionId, 6, TOTAL, '완료', 'done')
 
   } catch (err) {
     console.error('[collect] 오류:', err)

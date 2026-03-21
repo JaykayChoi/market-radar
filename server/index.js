@@ -9,6 +9,7 @@ app.use(express.json())
 app.use('/api/collect', require('./routes/collect'))
 app.use('/api/data', require('./routes/data'))
 app.use('/api/export', require('./routes/export'))
+app.use('/api/naver', require('./routes/naver'))
 
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../dist')))

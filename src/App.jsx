@@ -114,7 +114,7 @@ export default function App() {
         {activeTab === 'etf' && <EtfTab {...tabProps} />}
         {activeTab === 'investor' && <InvestorTab {...tabProps} />}
         {activeTab === 'supply' && <SupplyTab {...tabProps} />}
-        {activeTab === 'volume_surge' && <VolumeSurgeTab {...tabProps} />}
+        {activeTab === 'volume_surge' && <VolumeSurgeTab />}
       </main>
 
       {/* Toast */}
