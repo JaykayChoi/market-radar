@@ -128,6 +128,26 @@ test.describe('미국 13F 기관 탭', () => {
   })
 })
 
+// ─── 미국 IPO/실적 캘린더 탭 ──────────────────────────────────────────
+
+test.describe('미국 IPO/실적 캘린더 탭', () => {
+  test('캘린더 탭 클릭 시 달력이 표시된다', async ({ page }) => {
+    await goToUsMarket(page)
+    await page.click('button:has-text("IPO/실적 캘린더")')
+    await page.waitForSelector('[data-testid="us-calendar-tab"]', { timeout: 15000 })
+    await expect(page.locator('[data-testid="us-calendar-tab"]')).toBeVisible()
+  })
+
+  test('필터 버튼 (전체/IPO/실적발표)이 표시된다', async ({ page }) => {
+    await goToUsMarket(page)
+    await page.click('button:has-text("IPO/실적 캘린더")')
+    await page.waitForSelector('[data-testid="filter-all"]', { timeout: 15000 })
+    await expect(page.locator('[data-testid="filter-all"]')).toBeVisible()
+    await expect(page.locator('[data-testid="filter-ipo"]')).toBeVisible()
+    await expect(page.locator('[data-testid="filter-earnings"]')).toBeVisible()
+  })
+})
+
 // ─── 미국 매크로 탭 ──────────────────────────────────────────────────
 
 test.describe('미국 매크로 탭', () => {

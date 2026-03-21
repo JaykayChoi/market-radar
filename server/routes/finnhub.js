@@ -112,5 +112,31 @@ router.get('/indicator/:name', async (req, res) => {
   }
 })
 
+// GET /api/finnhub/calendar/ipo — IPO 캘린더
+router.get('/calendar/ipo', async (req, res) => {
+  try {
+    const { from, to } = req.query
+    if (!from || !to) return res.status(400).json({ error: 'from, to 파라미터 필요 (YYYY-MM-DD)' })
+    const data = await finnhubGet('/calendar/ipo', { from, to })
+    res.json(data)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// GET /api/finnhub/calendar/earnings — 실적발표 캘린더
+router.get('/calendar/earnings', async (req, res) => {
+  try {
+    const { from, to, symbol } = req.query
+    if (!from || !to) return res.status(400).json({ error: 'from, to 파라미터 필요 (YYYY-MM-DD)' })
+    const params = { from, to }
+    if (symbol) params.symbol = symbol.toUpperCase()
+    const data = await finnhubGet('/calendar/earnings', params)
+    res.json(data)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 module.exports = router
 module.exports.INDICATORS = INDICATORS
