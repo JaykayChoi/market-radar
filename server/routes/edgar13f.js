@@ -236,12 +236,20 @@ router.get('/:cik/latest', async (req, res) => {
 
     // 직전 분기 비교
     let prevFilingDate = null
+    let exited = []
     if (filings.length >= 2) {
       try {
         const prevXml = await fetchInfoTableXml(cik, filings[1].accNo)
         const prevMap = parseInfoTableRaw(prevXml)
         holdings = addChangeInfo(holdings, prevMap)
         prevFilingDate = filings[1].filingDate
+
+        // 청산 종목: 직전 분기 상위 50에 있었지만 이번 분기에 없는 CUSIP
+        const currentCusips = new Set(holdings.map(h => h.cusip))
+        const prevTop = parseInfoTable(prevXml, 50)
+        exited = prevTop
+          .filter(p => !currentCusips.has(p.cusip))
+          .map(p => ({ ...p, change: 'exited', changePct: null }))
       } catch (_) { /* 직전 분기 파싱 실패 시 비교 없이 진행 */ }
     }
 
@@ -263,7 +271,9 @@ router.get('/:cik/latest', async (req, res) => {
       newCount,
       increasedCount,
       decreasedCount,
+      exitedCount: exited.length,
       holdings,
+      exited,
     }
     cache.set(cacheKey, { data, ts: Date.now() })
     res.json(data)

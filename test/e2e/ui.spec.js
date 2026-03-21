@@ -111,14 +111,15 @@ test.describe('미국 13F 기관 탭', () => {
   })
 
   test('Berkshire 선택 시 홀딩스 테이블이 로드된다', async ({ page }) => {
+    test.setTimeout(90000)  // SEC EDGAR 2건 fetch (전분기 비교)
     await goTo13fTab(page)
     await page.click('[data-testid="inst-berkshire"]')
-    // 전분기 비교를 위해 2건의 XML을 SEC EDGAR에서 가져오므로 60초 대기
     await page.waitForSelector('[data-testid="holdings-table"]', { timeout: 60000 })
     await expect(page.locator('[data-testid="holdings-table"]')).toBeVisible()
   })
 
   test('홀딩스 테이블에 행이 있다', async ({ page }) => {
+    test.setTimeout(90000)
     await goTo13fTab(page)
     await page.click('[data-testid="inst-berkshire"]')
     await page.waitForSelector('[data-testid="holdings-table"] tbody tr', { timeout: 60000 })

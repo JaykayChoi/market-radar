@@ -25,6 +25,7 @@ const CHANGE_CONFIG = {
   increased: { label: '▲ 증가', bg: 'bg-green-100',  text: 'text-green-700'  },
   decreased: { label: '▼ 감소', bg: 'bg-red-100',    text: 'text-red-700'    },
   held:      { label: '― 유지', bg: 'bg-gray-100',   text: 'text-gray-500'   },
+  exited:    { label: '✕ 청산', bg: 'bg-orange-100', text: 'text-orange-700' },
 }
 
 // ── 컴포넌트 ──────────────────────────────────────────────────────
@@ -37,6 +38,7 @@ export default function Us13fTab() {
   const [loading, setLoading]           = useState(false)
   const [error, setError]               = useState(null)
   const [stats, setStats]               = useState(null)
+  const [exited, setExited]             = useState([])
 
   // 기관 목록 로드
   useEffect(() => {
@@ -60,6 +62,7 @@ export default function Us13fTab() {
     setHoldings(null)
     setFilingDate(null)
     setStats(null)
+    setExited([])
 
     fetch(`/api/edgar13f/${inst.cik}/latest`)
       .then(r => r.json())
@@ -67,11 +70,13 @@ export default function Us13fTab() {
         if (data.error) throw new Error(data.error)
         setHoldings(data.holdings)
         setFilingDate(data.filingDate)
+        setExited(data.exited || [])
         setStats({
           prevFilingDate: data.prevFilingDate,
           newCount: data.newCount || 0,
           increasedCount: data.increasedCount || 0,
           decreasedCount: data.decreasedCount || 0,
+          exitedCount: data.exitedCount || 0,
         })
       })
       .catch(e => setError(e.message))
@@ -145,7 +150,7 @@ export default function Us13fTab() {
             </div>
 
             {/* 요약 카드 */}
-            <div className="grid grid-cols-6 gap-3 mb-4">
+            <div className="grid grid-cols-7 gap-3 mb-4">
               {[
                 { label: 'AUM',       value: fmtAum(institution.aum),                 color: 'text-gray-900' },
                 { label: '포트폴리오', value: holdings ? fmtValue(totalValue) : '—',  color: 'text-gray-900' },
@@ -153,6 +158,7 @@ export default function Us13fTab() {
                 { label: '신규 편입',  value: stats ? `${stats.newCount}개` : '—',     color: 'text-purple-600' },
                 { label: '비중 확대',  value: stats ? `${stats.increasedCount}개` : '—', color: 'text-green-600' },
                 { label: '비중 축소',  value: stats ? `${stats.decreasedCount}개` : '—', color: 'text-red-600' },
+                { label: '청산',      value: stats ? `${stats.exitedCount}개` : '—',    color: 'text-orange-600' },
               ].map(({ label, value, color }) => (
                 <div key={label} className="bg-white rounded-lg border border-gray-200 p-3 text-center shadow-sm">
                   <p className="text-xs text-gray-400 mb-1">{label}</p>
@@ -236,6 +242,30 @@ export default function Us13fTab() {
                   )
                 })}
               </tbody>
+              {exited.length > 0 && (
+                <tbody className="border-t-2 border-orange-200">
+                  <tr>
+                    <td colSpan="7" className="px-3 py-1.5 bg-orange-50 text-xs font-semibold text-orange-600 uppercase tracking-wider">
+                      전분기 대비 청산 ({exited.length}종목)
+                    </td>
+                  </tr>
+                  {exited.map(h => (
+                    <tr key={`exited-${h.cusip}`} className="bg-orange-50/30 text-gray-400">
+                      <td className="px-3 py-2 text-center text-xs">—</td>
+                      <td className="px-3 py-2 font-medium line-through">{h.name}</td>
+                      <td className="px-3 py-2 text-xs font-mono">{h.cusip}</td>
+                      <td className="px-3 py-2 text-right text-xs">{fmtShares(h.shares)}</td>
+                      <td className="px-3 py-2 text-right text-xs">{fmtValue(h.value)}</td>
+                      <td className="px-3 py-2 text-right text-xs">{h.pct.toFixed(1)}%</td>
+                      <td className="px-3 py-2 text-center">
+                        <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                          ✕ 청산
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              )}
             </table>
           </div>
         )}
