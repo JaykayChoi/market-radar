@@ -23,9 +23,7 @@ type: project
 - sosok=0: 코스피, sosok=1: 코스닥
 - iconv-lite로 EUC-KR 디코딩, type_2 테이블 파싱
 
-**DB 스키마:**
-- volume_surge: (date, code, market, name, surge_ratio, close, change_rate, volume, prev_volume, per)
-
-**조회 방식:** 날짜 범위 내 가장 최근 날짜 1일치, 전체/코스피/코스닥 필터
+**조회 방식:** 라이브 조회 — 탭 열 때 `/api/naver/volume_surge` 직접 호출 (DB/수집 버튼 불필요)
+- 코스피 ~92건 + 코스닥 ~100건, 전체/코스피/코스닥 필터
 
 **다음 작업:** 없음 (완료)
