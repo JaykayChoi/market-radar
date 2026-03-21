@@ -21,6 +21,7 @@ app.use('/api/treasury', require('./routes/treasury'))
 app.use('/api/bea',      require('./routes/bea'))
 app.use('/api/polygon',  require('./routes/polygon'))
 app.use('/api/etf',      require('./routes/etf'))
+app.use('/api/edgar13f', require('./routes/edgar13f'))
 
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../dist')))

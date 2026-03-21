@@ -81,6 +81,51 @@ test.describe('미국 ETF 탭', () => {
   })
 })
 
+// ─── 미국 13F 기관 탭 ────────────────────────────────────────────────
+
+test.describe('미국 13F 기관 탭', () => {
+  async function goTo13fTab(page) {
+    await goToUsMarket(page)
+    await page.click('button:has-text("13F 기관")')
+    await page.waitForSelector('[data-testid="us-13f-tab"]', { timeout: 10000 })
+    // 기관 목록이 API 응답 후 렌더링될 때까지 대기
+    await page.waitForSelector('[data-testid="inst-blackrock"]', { timeout: 15000 })
+  }
+
+  test('13F 기관 탭 클릭 시 탭 컨텐츠가 표시된다', async ({ page }) => {
+    await goTo13fTab(page)
+    await expect(page.locator('[data-testid="us-13f-tab"]')).toBeVisible()
+  })
+
+  test('좌측 사이드바에 기관 버튼들이 표시된다', async ({ page }) => {
+    await goTo13fTab(page)
+    // BlackRock 버튼 (첫 번째 기관, AUM 최대)
+    await expect(page.locator('[data-testid="inst-blackrock"]')).toBeVisible()
+  })
+
+  test('기관 클릭 시 로딩 스피너 또는 홀딩스 테이블이 나타난다', async ({ page }) => {
+    await goTo13fTab(page)
+    await page.click('[data-testid="inst-berkshire"]')
+    // 로딩 스피너나 테이블 중 하나가 나타날 때까지 대기
+    await page.waitForSelector('.animate-spin, [data-testid="holdings-table"]', { timeout: 10000 })
+  })
+
+  test('Berkshire 선택 시 홀딩스 테이블이 로드된다', async ({ page }) => {
+    await goTo13fTab(page)
+    await page.click('[data-testid="inst-berkshire"]')
+    await page.waitForSelector('[data-testid="holdings-table"]', { timeout: 30000 })
+    await expect(page.locator('[data-testid="holdings-table"]')).toBeVisible()
+  })
+
+  test('홀딩스 테이블에 행이 있다', async ({ page }) => {
+    await goTo13fTab(page)
+    await page.click('[data-testid="inst-berkshire"]')
+    await page.waitForSelector('[data-testid="holdings-table"] tbody tr', { timeout: 30000 })
+    const rows = page.locator('[data-testid="holdings-table"] tbody tr')
+    await expect(rows.first()).toBeVisible()
+  })
+})
+
 // ─── 미국 매크로 탭 ──────────────────────────────────────────────────
 
 test.describe('미국 매크로 탭', () => {

@@ -15,6 +15,7 @@ type: project
 | 항목 | 소스 | 비고 |
 |------|------|------|
 | 미국 매크로 대시보드 (10개 핵심 지표) | FRED | 탭 구현됨 (`UsMacroTab`) |
+| 미국 ETF 가격/AUM/성과 (27개, 1W%/1M%/3M%) | Yahoo Finance + FMP | 탭 구현됨 (`UsEtfTab`) |
 
 ---
 

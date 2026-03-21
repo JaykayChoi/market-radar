@@ -12,6 +12,7 @@
 - [user_language.md](user_language.md) — 항상 한국어로 답변
 - [feedback_status_update.md](feedback_status_update.md) — 구현 진행 중 status.md 상시 업데이트
 - [feedback_us_e2e.md](feedback_us_e2e.md) — 미국 탭 개발 시 항상 실제 구현 + 브라우저 E2E 테스트 작성
+- [feedback_memory_update.md](feedback_memory_update.md) — 메모리 업데이트 시 status.md + feature_candidates 반드시 포함
 
 # currentDate
 Today's date is 2026-03-21.

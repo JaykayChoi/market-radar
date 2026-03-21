@@ -7,6 +7,7 @@ import SupplyTab from './components/tabs/SupplyTab'
 import VolumeSurgeTab from './components/tabs/VolumeSurgeTab'
 import UsMacroTab from './components/tabs/UsMacroTab'
 import UsEtfTab from './components/tabs/us/UsEtfTab'
+import Us13fTab from './components/tabs/us/Us13fTab'
 
 const KR_TABS = [
   { id: 'etf',          label: 'ETF 순자산변화'  },
@@ -18,6 +19,7 @@ const KR_TABS = [
 const US_TABS = [
   { id: 'us_etf',   label: 'ETF'    },
   { id: 'us_macro', label: '매크로' },
+  { id: 'us_13f',   label: '13F 기관' },
 ]
 
 const MARKETS = [
@@ -162,6 +164,7 @@ export default function App() {
         {/* 미국 탭 */}
         {market === 'us' && activeTab === 'us_etf'   && <UsEtfTab />}
         {market === 'us' && activeTab === 'us_macro' && <UsMacroTab />}
+        {market === 'us' && activeTab === 'us_13f'   && <Us13fTab />}
       </main>
 
       {/* Toast */}

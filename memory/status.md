@@ -34,4 +34,4 @@ type: project
 **테스트:** `test/unit/etf-route.test.js` — 9케이스 통과
 **전체 백엔드 유닛:** 102/102 통과
 
-**다음 작업:** 미국 매크로 탭 이후 기능 구현
+**다음 작업:** feature_candidates_us.md 참고 — 수익률 곡선 시각화 또는 섹터 히트맵 등
