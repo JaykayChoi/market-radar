@@ -58,6 +58,124 @@ function pcrLabel(pcr) {
 
 // ── 주요 종목 ────────────────────────────────────────────────────
 
+// ── 옵션 데이터 자동 분석 ────────────────────────────────────────
+
+function analyzeOptionChain(chain) {
+  const { calls, puts, underlying } = chain
+  const price = underlying.price
+  const insights = []
+
+  // 1. P/C Ratio 분석
+  const totalCallVol = calls.reduce((s, c) => s + c.volume, 0)
+  const totalPutVol  = puts.reduce((s, p) => s + p.volume, 0)
+  const totalCallOI  = calls.reduce((s, c) => s + c.openInterest, 0)
+  const totalPutOI   = puts.reduce((s, p) => s + p.openInterest, 0)
+  const pcrVol = totalPutVol / totalCallVol
+  const pcrOI  = totalPutOI / totalCallOI
+
+  if (pcrVol >= 1.2) {
+    insights.push({ type: 'bearish', title: '풋 거래량 우위', text: `P/C 거래량 비율 ${pcrVol.toFixed(2)}로 풋 옵션 거래가 콜을 크게 압도. 시장 참여자들의 하방 헤지 또는 약세 베팅이 활발합니다.` })
+  } else if (pcrVol <= 0.5) {
+    insights.push({ type: 'bullish', title: '콜 거래량 압도', text: `P/C 거래량 비율 ${pcrVol.toFixed(2)}로 콜 옵션 거래가 풋의 2배 이상. 강한 상승 기대 심리가 반영되어 있습니다.` })
+  } else if (pcrVol <= 0.7) {
+    insights.push({ type: 'bullish', title: '콜 거래 우세', text: `P/C 거래량 비율 ${pcrVol.toFixed(2)}로 콜 옵션 선호. 단기 강세 심리가 우세합니다.` })
+  } else if (pcrVol >= 1.0) {
+    insights.push({ type: 'bearish', title: '풋 거래 우세', text: `P/C 거래량 비율 ${pcrVol.toFixed(2)}로 풋 거래가 콜을 초과. 약세 심리 또는 헤지 수요가 증가하고 있습니다.` })
+  } else {
+    insights.push({ type: 'neutral', title: '균형 잡힌 시장', text: `P/C 거래량 비율 ${pcrVol.toFixed(2)}로 콜과 풋 거래가 비교적 균형. 뚜렷한 방향성이 없는 상태입니다.` })
+  }
+
+  // 2. Max Pain 계산 (OI 기준 손실 최소화 행사가)
+  const strikes = calls.map(c => c.strike)
+  let minPain = Infinity, maxPainStrike = strikes[0]
+  for (const s of strikes) {
+    let pain = 0
+    for (const c of calls) pain += Math.max(0, s - c.strike) * c.openInterest
+    for (const p of puts)  pain += Math.max(0, p.strike - s) * p.openInterest
+    if (pain < minPain) { minPain = pain; maxPainStrike = s }
+  }
+  const mpDiff = ((maxPainStrike - price) / price * 100).toFixed(1)
+  insights.push({
+    type: maxPainStrike > price ? 'bullish' : maxPainStrike < price ? 'bearish' : 'neutral',
+    title: `Max Pain: $${maxPainStrike}`,
+    text: `옵션 만기 시 매도자(마켓메이커)의 손실이 최소화되는 행사가. 현재가 대비 ${mpDiff > 0 ? '+' : ''}${mpDiff}%. 만기일에 이 가격 방향으로 수렴하는 경향이 있습니다.`,
+  })
+
+  // 3. 콜 OI 최대 행사가 (저항선)
+  const maxCallOI = calls.reduce((max, c) => c.openInterest > max.openInterest ? c : max, calls[0])
+  if (maxCallOI.strike > price) {
+    insights.push({ type: 'info', title: `콜 OI 집중: $${maxCallOI.strike} (${fmtVol(maxCallOI.openInterest)})`, text: `콜 미결제약정이 가장 많은 행사가. 이 가격대에서 매도자의 감마 헤지가 집중되어 저항선으로 작용할 가능성이 높습니다.` })
+  }
+
+  // 4. 풋 OI 최대 행사가 (지지선)
+  const maxPutOI = puts.reduce((max, p) => p.openInterest > max.openInterest ? p : max, puts[0])
+  if (maxPutOI.strike < price) {
+    insights.push({ type: 'info', title: `풋 OI 집중: $${maxPutOI.strike} (${fmtVol(maxPutOI.openInterest)})`, text: `풋 미결제약정이 가장 많은 행사가. 이 가격대 아래로 하락 시 매도자 헤지 매수가 유입되어 지지선으로 작용할 가능성이 높습니다.` })
+  }
+
+  // 5. 거래량 급등 행사가 탐지
+  const avgCallVol = totalCallVol / calls.length
+  const avgPutVol  = totalPutVol / puts.length
+  const hotCalls = calls.filter(c => c.volume > avgCallVol * 3 && !c.itm)
+  const hotPuts  = puts.filter(p => p.volume > avgPutVol * 3 && !p.itm)
+  if (hotCalls.length > 0) {
+    const hot = hotCalls[0]
+    insights.push({ type: 'bullish', title: `콜 거래량 급등: $${hot.strike}`, text: `OTM 콜 $${hot.strike} 행사가에서 평균 대비 ${(hot.volume / avgCallVol).toFixed(0)}배 거래량 발생. 해당 가격 이상 상승을 기대하는 대규모 포지션 진입 가능성.` })
+  }
+  if (hotPuts.length > 0) {
+    const hot = hotPuts[0]
+    insights.push({ type: 'bearish', title: `풋 거래량 급등: $${hot.strike}`, text: `OTM 풋 $${hot.strike} 행사가에서 평균 대비 ${(hot.volume / avgPutVol).toFixed(0)}배 거래량 발생. 해당 가격 이하 하락에 대한 헤지 또는 약세 베팅.` })
+  }
+
+  // 6. IV 스큐 분석
+  const otmPutIV  = puts.filter(p => !p.itm).reduce((s, p) => s + p.iv, 0) / (puts.filter(p => !p.itm).length || 1)
+  const otmCallIV = calls.filter(c => !c.itm).reduce((s, c) => s + c.iv, 0) / (calls.filter(c => !c.itm).length || 1)
+  const skew = otmPutIV - otmCallIV
+  if (skew > 0.03) {
+    insights.push({ type: 'bearish', title: 'IV 스큐: 풋 프리미엄', text: `OTM 풋 IV(${(otmPutIV*100).toFixed(1)}%)가 OTM 콜 IV(${(otmCallIV*100).toFixed(1)}%)보다 ${(skew*100).toFixed(1)}%p 높음. 하방 리스크에 대한 보험 수요가 크다는 의미입니다.` })
+  } else if (skew < -0.01) {
+    insights.push({ type: 'bullish', title: 'IV 스큐: 콜 프리미엄', text: `OTM 콜 IV가 풋 IV보다 높은 비정상적 상황. 상방에 대한 기대가 매우 강하거나 숏 스퀴즈 가능성을 반영합니다.` })
+  }
+
+  return insights
+}
+
+const INSIGHT_STYLE = {
+  bullish: { border: 'border-green-200', bg: 'bg-green-50', icon: '🟢', label: '강세 신호' },
+  bearish: { border: 'border-red-200',   bg: 'bg-red-50',   icon: '🔴', label: '약세 신호' },
+  neutral: { border: 'border-gray-200',  bg: 'bg-gray-50',  icon: '⚪', label: '중립' },
+  info:    { border: 'border-blue-200',  bg: 'bg-blue-50',  icon: '🔵', label: '참고' },
+}
+
+function OptionAnalysis({ chain }) {
+  const insights = analyzeOptionChain(chain)
+  if (insights.length === 0) return null
+
+  return (
+    <div className="mt-4 space-y-2">
+      <p className="text-sm font-bold text-gray-800">AI 데이터 분석</p>
+      {insights.map((ins, i) => {
+        const style = INSIGHT_STYLE[ins.type] || INSIGHT_STYLE.info
+        return (
+          <div key={i} className={`rounded-lg border ${style.border} ${style.bg} px-4 py-2.5`}>
+            <div className="flex items-center gap-2 mb-0.5">
+              <span>{style.icon}</span>
+              <span className="text-xs font-bold text-gray-800">{ins.title}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                ins.type === 'bullish' ? 'bg-green-200 text-green-800' :
+                ins.type === 'bearish' ? 'bg-red-200 text-red-800' :
+                ins.type === 'info' ? 'bg-blue-200 text-blue-800' :
+                'bg-gray-200 text-gray-700'
+              }`}>{style.label}</span>
+            </div>
+            <p className="text-xs text-gray-600 leading-relaxed">{ins.text}</p>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 const POPULAR_SYMBOLS = ['SPY', 'QQQ', 'AAPL', 'MSFT', 'NVDA', 'TSLA', 'AMZN', 'META', 'GOOGL', 'AMD']
 
 // ── 컴포넌트 ──────────────────────────────────────────────────────
@@ -304,6 +422,9 @@ export default function UsOptionsTab() {
               </tbody>
             </table>
           </div>
+
+          {/* 데이터 분석 해석 */}
+          <OptionAnalysis chain={chain} />
 
           <div className="flex gap-4 mt-2 text-[10px] text-gray-400">
             <span className="flex items-center gap-1"><span className="w-3 h-2 bg-green-50 border border-green-200 inline-block" /> ITM (콜)</span>
