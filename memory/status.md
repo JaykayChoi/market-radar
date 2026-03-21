@@ -6,7 +6,7 @@ type: project
 
 ## 현재 상태 (2026-03-21)
 
-**미국 ETF 탭 — 구현 완료**
+**미국 13F 기관 포지션 탭 — 구현 완료**
 
 ## 구현된 탭 목록
 
@@ -17,21 +17,26 @@ type: project
 | 공매도 | 공매도 잔고/거래 상위 100종목 (코스피+코스닥 각 50) |
 | 거래량 급등 | 전일 대비 거래량 급등 상위 종목 (코스피+코스닥) |
 | 미국 ETF | 주요 ETF 27개 가격/AUM/성과 (Yahoo+FMP) |
+| 미국 매크로 | 10개 핵심 거시지표 (FRED) |
+| 미국 13F 기관 | SEC EDGAR 13F 기관 포지션 (50개 기관, 전분기 비교) |
 
-## 미국 ETF 탭 상세
+## 미국 13F 탭 상세
 
-**데이터 소스:**
-- 가격/성과(1W%/1M%/3M%): Yahoo Finance v8 chart API (3mo range)
-- AUM: FMP stable profile API (30분 서버사이드 캐시)
+**데이터 소스:** SEC EDGAR 13F-HR (submissions JSON → infotable XML 파싱)
 
-**라우트:** `server/routes/etf.js`
-- GET `/api/etf/list` — 27개 ETF 메타데이터
-- GET `/api/etf/summary` — 전체 ETF 병렬 조회 (가격+AUM+성과)
-- GET `/api/etf/:symbol` — 단일 ETF 상세
+**라우트:** `server/routes/edgar13f.js`
+- GET `/api/edgar13f/institutions` — 50개 기관 메타데이터 (AM 22 + HF 28)
+- GET `/api/edgar13f/:cik/latest` — 최신 + 전분기 13F 비교, 상위 100 포지션
 
-**ETF 분류:** US Equity / International / Fixed Income / Commodities / Sector / Leverage
+**기능:**
+- 전분기 대비 주식수 변화 (new/increased/decreased/held)
+- 청산 종목 표시 (직전 분기에 있었지만 현재 없는 종목)
+- 전체 XML 기준 총 포트폴리오 금액 + 변화율
+- 전체 보유 종목 수 (상위 100개만 표시)
+- SEC EDGAR 페이지 링크
+- 24시간 서버 캐시
 
-**테스트:** `test/unit/etf-route.test.js` — 9케이스 통과
-**전체 백엔드 유닛:** 102/102 통과
+**테스트:** `test/unit/edgar13f-route.test.js` — 24케이스 통과
+**E2E:** `test/e2e/ui.spec.js` — 13F 탭 5케이스 포함, 18/18 통과
 
 **다음 작업:** feature_candidates_us.md 참고 — 수익률 곡선 시각화 또는 섹터 히트맵 등
