@@ -232,7 +232,12 @@ router.get('/:cik/latest', async (req, res) => {
 
     const filings = await getFilings(cik, 2)
     const latestXml = await fetchInfoTableXml(cik, filings[0].accNo)
-    let holdings = parseInfoTable(latestXml, 50)
+    let holdings = parseInfoTable(latestXml, 100)
+
+    // 전체 XML 기준 총액 계산
+    const latestMap = parseInfoTableRaw(latestXml)
+    let total = 0
+    for (const [, v] of latestMap) total += v.value
 
     // 직전 분기 비교
     let prevFilingDate = null
@@ -250,9 +255,9 @@ router.get('/:cik/latest', async (req, res) => {
         for (const [, v] of prevMap) prevTotalAll += v.value
         prevTotal = prevTotalAll
 
-        // 청산 종목: 직전 분기 상위 50에 있었지만 이번 분기에 없는 CUSIP
+        // 청산 종목: 직전 분기 상위 100에 있었지만 이번 분기에 없는 CUSIP
         const currentCusips = new Set(holdings.map(h => h.cusip))
-        const prevTop = parseInfoTable(prevXml, 50)
+        const prevTop = parseInfoTable(prevXml, 100)
         exited = prevTop
           .filter(p => !currentCusips.has(p.cusip))
           .map(p => ({ ...p, change: 'exited', changePct: null }))
@@ -264,7 +269,6 @@ router.get('/:cik/latest', async (req, res) => {
       change: null, changePct: null, ...h,
     }))
 
-    const total = holdings.reduce((s, h) => s + h.value, 0)
     const totalChangePct = (prevTotal !== null && prevTotal > 0)
       ? parseFloat(((total - prevTotal) / prevTotal * 100).toFixed(1))
       : null
@@ -272,10 +276,13 @@ router.get('/:cik/latest', async (req, res) => {
     const increasedCount = holdings.filter(h => h.change === 'increased').length
     const decreasedCount = holdings.filter(h => h.change === 'decreased').length
 
+    const edgarUrl = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${cik.padStart(10, '0')}&type=13F-HR&dateb=&owner=include&count=10`
+
     const data = {
       cik,
       filingDate: filings[0].filingDate,
       prevFilingDate,
+      edgarUrl,
       total,
       prevTotal,
       totalChangePct,

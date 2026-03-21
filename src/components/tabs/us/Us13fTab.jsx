@@ -39,6 +39,7 @@ export default function Us13fTab() {
   const [error, setError]               = useState(null)
   const [stats, setStats]               = useState(null)
   const [exited, setExited]             = useState([])
+  const [edgarUrl, setEdgarUrl]         = useState(null)
 
   // 기관 목록 로드
   useEffect(() => {
@@ -63,6 +64,7 @@ export default function Us13fTab() {
     setFilingDate(null)
     setStats(null)
     setExited([])
+    setEdgarUrl(null)
 
     fetch(`/api/edgar13f/${inst.cik}/latest`)
       .then(r => r.json())
@@ -71,8 +73,10 @@ export default function Us13fTab() {
         setHoldings(data.holdings)
         setFilingDate(data.filingDate)
         setExited(data.exited || [])
+        setEdgarUrl(data.edgarUrl || null)
         setStats({
           prevFilingDate: data.prevFilingDate,
+          total: data.total,
           totalChangePct: data.totalChangePct,
           newCount: data.newCount || 0,
           increasedCount: data.increasedCount || 0,
@@ -145,17 +149,25 @@ export default function Us13fTab() {
                   <p className="text-sm text-gray-500">매니저: {institution.manager}</p>
                 )}
               </div>
-              <span className="text-xs text-gray-400">
-                SEC EDGAR 13F{filingDate ? ` · ${filingDate}` : ''}
-              </span>
+              <div className="text-right">
+                <p className="text-xs text-gray-400">
+                  SEC EDGAR 13F{filingDate ? ` · 최신: ${filingDate}` : ''}
+                  {stats?.prevFilingDate ? ` / 전분기: ${stats.prevFilingDate}` : ''}
+                </p>
+                {edgarUrl && (
+                  <a href={edgarUrl} target="_blank" rel="noopener noreferrer"
+                     className="text-xs text-blue-500 hover:text-blue-700 hover:underline">
+                    SEC EDGAR에서 보기 →
+                  </a>
+                )}
+              </div>
             </div>
 
             {/* 요약 카드 */}
-            <div className="grid grid-cols-7 gap-3 mb-4">
+            <div className="grid grid-cols-6 gap-3 mb-4">
               {[
-                { label: 'AUM',       value: fmtAum(institution.aum),                 color: 'text-gray-900' },
-                { label: '포트폴리오',
-                  value: holdings ? fmtValue(totalValue) : '—',
+                { label: '총 포트폴리오',
+                  value: stats?.total ? fmtValue(stats.total) : (holdings ? fmtValue(totalValue) : '—'),
                   sub: stats?.totalChangePct != null
                     ? `${stats.totalChangePct > 0 ? '+' : ''}${stats.totalChangePct}%`
                     : null,
