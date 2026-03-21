@@ -124,7 +124,26 @@ router.get('/calendar/ipo', async (req, res) => {
   }
 })
 
-// GET /api/finnhub/calendar/earnings — 실적발표 캘린더
+// 기업명 캐시 (symbol → name, 영구 유지)
+const companyNameCache = new Map()
+
+async function resolveCompanyNames(symbols) {
+  const missing = symbols.filter(s => !companyNameCache.has(s))
+  // 병렬로 최대 20개씩 조회 (Finnhub rate limit 고려)
+  for (let i = 0; i < missing.length; i += 20) {
+    const batch = missing.slice(i, i + 20)
+    await Promise.allSettled(batch.map(async (sym) => {
+      try {
+        const data = await finnhubGet('/stock/profile2', { symbol: sym })
+        companyNameCache.set(sym, data.name || sym)
+      } catch {
+        companyNameCache.set(sym, sym)  // 실패 시 심볼 그대로
+      }
+    }))
+  }
+}
+
+// GET /api/finnhub/calendar/earnings — 실적발표 캘린더 (기업명 포함)
 router.get('/calendar/earnings', async (req, res) => {
   try {
     const { from, to, symbol } = req.query
@@ -132,6 +151,19 @@ router.get('/calendar/earnings', async (req, res) => {
     const params = { from, to }
     if (symbol) params.symbol = symbol.toUpperCase()
     const data = await finnhubGet('/calendar/earnings', params)
+
+    // 기업명 조회
+    const symbols = [...new Set((data.earningsCalendar || []).map(e => e.symbol).filter(Boolean))]
+    await resolveCompanyNames(symbols)
+
+    // 기업명 추가
+    if (data.earningsCalendar) {
+      data.earningsCalendar = data.earningsCalendar.map(e => ({
+        ...e,
+        companyName: companyNameCache.get(e.symbol) || e.symbol,
+      }))
+    }
+
     res.json(data)
   } catch (err) {
     res.status(500).json({ error: err.message })

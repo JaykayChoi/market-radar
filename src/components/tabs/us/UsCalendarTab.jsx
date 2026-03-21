@@ -158,8 +158,10 @@ const TIER_CONFIG = {
   top100: { bg: 'bg-blue-50',   dateBg: 'bg-blue-50',    badge: 'bg-blue-200 text-blue-800',   label: 'TOP100' },
 }
 
-function getCompanyName(symbol) {
-  return TOP_COMPANIES[symbol]?.name || symbol
+function getCompanyName(symbol, companyName) {
+  if (TOP_COMPANIES[symbol]?.name) return TOP_COMPANIES[symbol].name
+  if (companyName && companyName !== symbol) return companyName
+  return symbol
 }
 
 // 날짜의 최상위 tier 계산 (top10 > top50 > top100 > null)
@@ -413,7 +415,7 @@ export default function UsCalendarTab() {
                     <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                       <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
                       <span className="text-xs font-bold text-blue-700">실적</span>
-                      <span className="text-xs font-semibold text-gray-900">{getCompanyName(e.symbol)}</span>
+                      <span className="text-xs font-semibold text-gray-900">{getCompanyName(e.symbol, e.companyName)}</span>
                       {TOP_COMPANIES[e.symbol] && <span className="text-[10px] text-gray-400">{e.symbol}</span>}
                       {getTier(e.symbol) && (
                         <span className={`text-[10px] px-1 py-0.5 rounded font-medium ${TIER_CONFIG[getTier(e.symbol)].badge}`}>
