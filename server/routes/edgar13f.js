@@ -236,6 +236,7 @@ router.get('/:cik/latest', async (req, res) => {
 
     // 직전 분기 비교
     let prevFilingDate = null
+    let prevTotal = null
     let exited = []
     if (filings.length >= 2) {
       try {
@@ -243,6 +244,11 @@ router.get('/:cik/latest', async (req, res) => {
         const prevMap = parseInfoTableRaw(prevXml)
         holdings = addChangeInfo(holdings, prevMap)
         prevFilingDate = filings[1].filingDate
+
+        // 전분기 총 포트폴리오 (전체 XML 기준)
+        let prevTotalAll = 0
+        for (const [, v] of prevMap) prevTotalAll += v.value
+        prevTotal = prevTotalAll
 
         // 청산 종목: 직전 분기 상위 50에 있었지만 이번 분기에 없는 CUSIP
         const currentCusips = new Set(holdings.map(h => h.cusip))
@@ -259,6 +265,9 @@ router.get('/:cik/latest', async (req, res) => {
     }))
 
     const total = holdings.reduce((s, h) => s + h.value, 0)
+    const totalChangePct = (prevTotal !== null && prevTotal > 0)
+      ? parseFloat(((total - prevTotal) / prevTotal * 100).toFixed(1))
+      : null
     const newCount = holdings.filter(h => h.change === 'new').length
     const increasedCount = holdings.filter(h => h.change === 'increased').length
     const decreasedCount = holdings.filter(h => h.change === 'decreased').length
@@ -268,6 +277,8 @@ router.get('/:cik/latest', async (req, res) => {
       filingDate: filings[0].filingDate,
       prevFilingDate,
       total,
+      prevTotal,
+      totalChangePct,
       newCount,
       increasedCount,
       decreasedCount,

@@ -73,6 +73,7 @@ export default function Us13fTab() {
         setExited(data.exited || [])
         setStats({
           prevFilingDate: data.prevFilingDate,
+          totalChangePct: data.totalChangePct,
           newCount: data.newCount || 0,
           increasedCount: data.increasedCount || 0,
           decreasedCount: data.decreasedCount || 0,
@@ -153,16 +154,25 @@ export default function Us13fTab() {
             <div className="grid grid-cols-7 gap-3 mb-4">
               {[
                 { label: 'AUM',       value: fmtAum(institution.aum),                 color: 'text-gray-900' },
-                { label: '포트폴리오', value: holdings ? fmtValue(totalValue) : '—',  color: 'text-gray-900' },
+                { label: '포트폴리오',
+                  value: holdings ? fmtValue(totalValue) : '—',
+                  sub: stats?.totalChangePct != null
+                    ? `${stats.totalChangePct > 0 ? '+' : ''}${stats.totalChangePct}%`
+                    : null,
+                  subColor: stats?.totalChangePct > 0 ? 'text-green-600' : stats?.totalChangePct < 0 ? 'text-red-600' : 'text-gray-400',
+                  color: 'text-gray-900' },
                 { label: '보유 종목',  value: holdings ? `${holdings.length}개` : '—', color: 'text-gray-900' },
                 { label: '신규 편입',  value: stats ? `${stats.newCount}개` : '—',     color: 'text-purple-600' },
                 { label: '비중 확대',  value: stats ? `${stats.increasedCount}개` : '—', color: 'text-green-600' },
                 { label: '비중 축소',  value: stats ? `${stats.decreasedCount}개` : '—', color: 'text-red-600' },
                 { label: '청산',      value: stats ? `${stats.exitedCount}개` : '—',    color: 'text-orange-600' },
-              ].map(({ label, value, color }) => (
+              ].map(({ label, value, color, sub, subColor }) => (
                 <div key={label} className="bg-white rounded-lg border border-gray-200 p-3 text-center shadow-sm">
                   <p className="text-xs text-gray-400 mb-1">{label}</p>
-                  <p className={`text-base font-bold ${color}`}>{value}</p>
+                  <p className={`text-base font-bold ${color}`}>
+                    {value}
+                    {sub && <span className={`ml-1 text-xs font-medium ${subColor}`}>{sub}</span>}
+                  </p>
                 </div>
               ))}
             </div>
