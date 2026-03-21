@@ -1,12 +1,9 @@
 const { gotoMenu, fetch_json } = require('./browser')
 
-// KRX 데이터포털에서 직접 확인 후 교체 (Task 1)
-const SHORT_BALANCE_MENU = 'MDC0201060201'  // ← 실제 menuId로 교체
-const SHORT_TRADE_MENU   = 'MDC0201060101'  // ← 실제 menuId로 교체
-// 전종목 응답 최소 행 수 (Task 1에서 확인, 보통 1000 이상)
-const MIN_ROWS = 500
+const SHORT_TRADE_MENU   = 'MDC02030204'  // MDCSTAT30401 공매도 거래 상위 50
+const SHORT_BALANCE_MENU = 'MDC02030304'  // MDCSTAT30801 공매도 순보유 잔고 상위 50
 
-async function collectShortBalance(page, dates) {
+async function _captureMenu(page, menuId, bldPattern, label) {
   let capturedBld = null
   let capturedParams = null
   let lastReqBld = null
@@ -16,7 +13,7 @@ async function collectShortBalance(page, dates) {
     if (request.url().includes('getJsonData.cmd') && request.postData()) {
       const m = request.postData().match(/bld=([^&]+)/)
       if (m) {
-        lastReqBld = m[1]
+        lastReqBld = decodeURIComponent(m[1])
         lastReqParams = request.postData()
       }
     }
@@ -24,27 +21,20 @@ async function collectShortBalance(page, dates) {
 
   const onResponse = async (response) => {
     if (!response.url().includes('getJsonData.cmd') || capturedBld) return
-    try {
-      const d = JSON.parse(await response.text())
-      const rows = d.output || []
-      const first = rows[0] || {}
-      // Task 1에서 확인한 실제 필드명으로 조건 교체
-      if (rows.length > MIN_ROWS && Object.keys(first).some(k => k.toUpperCase().includes('BAL'))) {
-        capturedBld = lastReqBld
-        capturedParams = lastReqParams
-      }
-    } catch {}
+    if (lastReqBld && lastReqBld.includes(bldPattern)) {
+      capturedBld = lastReqBld
+      capturedParams = lastReqParams
+    }
   }
 
   page.on('request', onRequest)
   page.on('response', onResponse)
-  await gotoMenu(page, SHORT_BALANCE_MENU, 6000)
+  await gotoMenu(page, menuId, 6000)
   page.removeListener('request', onRequest)
   page.removeListener('response', onResponse)
 
-  if (!capturedBld) throw new Error('[shortstock] 공매도 잔고 bld 캡처 실패')
+  if (!capturedBld) throw new Error(`[shortstock] ${label} bld 캡처 실패 (${bldPattern} 없음)`)
 
-  const bldSuffix = capturedBld.replace('dbms/MDC/STAT/standard/', '')
   const baseObj = Object.fromEntries(
     new URLSearchParams(
       capturedParams
@@ -53,69 +43,35 @@ async function collectShortBalance(page, dates) {
         .replace(/^&+|&+$/g, '')
     )
   )
+  return { capturedBld, baseObj }
+}
+
+async function collectShortTrade(page, dates) {
+  const { capturedBld, baseObj } = await _captureMenu(
+    page, SHORT_TRADE_MENU, 'MDCSTAT304', '공매도 거래'
+  )
 
   const results = {}
   for (const date of dates) {
-    const rows = await fetch_json(page, bldSuffix, { ...baseObj, trdDd: date })
-    results[date] = rows
-    console.log(`[shortstock] 공매도 잔고 ${date}: ${rows.length}건`)
+    const kospi  = await fetch_json(page, capturedBld, { ...baseObj, trdDd: date, mktTpCd: '1' })
+    const kosdaq = await fetch_json(page, capturedBld, { ...baseObj, trdDd: date, mktTpCd: '2' })
+    results[date] = [...kospi, ...kosdaq]
+    console.log(`[shortstock] 공매도 거래 ${date}: 코스피 ${kospi.length}건, 코스닥 ${kosdaq.length}건`)
   }
   return results
 }
 
-async function collectShortTrade(page, dates) {
-  let capturedBld = null
-  let capturedParams = null
-  let lastReqBld = null
-  let lastReqParams = null
-
-  const onRequest = (request) => {
-    if (request.url().includes('getJsonData.cmd') && request.postData()) {
-      const m = request.postData().match(/bld=([^&]+)/)
-      if (m) {
-        lastReqBld = m[1]
-        lastReqParams = request.postData()
-      }
-    }
-  }
-
-  const onResponse = async (response) => {
-    if (!response.url().includes('getJsonData.cmd') || capturedBld) return
-    try {
-      const d = JSON.parse(await response.text())
-      const rows = d.output || []
-      const first = rows[0] || {}
-      // Task 1에서 확인한 실제 필드명으로 조건 교체
-      if (rows.length > MIN_ROWS && Object.keys(first).some(k => k.toUpperCase().includes('SHRT'))) {
-        capturedBld = lastReqBld
-        capturedParams = lastReqParams
-      }
-    } catch {}
-  }
-
-  page.on('request', onRequest)
-  page.on('response', onResponse)
-  await gotoMenu(page, SHORT_TRADE_MENU, 6000)
-  page.removeListener('request', onRequest)
-  page.removeListener('response', onResponse)
-
-  if (!capturedBld) throw new Error('[shortstock] 공매도 거래 bld 캡처 실패')
-
-  const bldSuffix = capturedBld.replace('dbms/MDC/STAT/standard/', '')
-  const baseObj = Object.fromEntries(
-    new URLSearchParams(
-      capturedParams
-        .replace(/bld=[^&]+&?/, '')
-        .replace(/locale=[^&]+&?/, '')
-        .replace(/^&+|&+$/g, '')
-    )
+async function collectShortBalance(page, dates) {
+  const { capturedBld, baseObj } = await _captureMenu(
+    page, SHORT_BALANCE_MENU, 'MDCSTAT308', '공매도 잔고'
   )
 
   const results = {}
   for (const date of dates) {
-    const rows = await fetch_json(page, bldSuffix, { ...baseObj, trdDd: date })
-    results[date] = rows
-    console.log(`[shortstock] 공매도 거래 ${date}: ${rows.length}건`)
+    const kospi  = await fetch_json(page, capturedBld, { ...baseObj, trdDd: date, mktTpCd: '1' })
+    const kosdaq = await fetch_json(page, capturedBld, { ...baseObj, trdDd: date, mktTpCd: '2' })
+    results[date] = [...kospi, ...kosdaq]
+    console.log(`[shortstock] 공매도 잔고 ${date}: 코스피 ${kospi.length}건, 코스닥 ${kosdaq.length}건`)
   }
   return results
 }

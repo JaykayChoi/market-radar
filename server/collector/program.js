@@ -1,8 +1,9 @@
 const { gotoMenu, fetch_json } = require('./browser')
 
-// KRX 데이터포털에서 직접 확인 후 교체 (Task 1)
-const PROGRAM_MENU = 'MDC0201070101'  // ← 실제 menuId로 교체
-const MIN_ROWS = 500
+// discover_krx_menus.js 탐색으로 확인된 실제 menuId
+// MDC0201020305 → MDCSTAT02601 (프로그램매매 차익/비차익, 3행)
+const PROGRAM_MENU = 'MDC0201020305'
+const MIN_ROWS = 0
 
 async function collectProgramTrade(page, dates) {
   let capturedBld = null
@@ -23,11 +24,8 @@ async function collectProgramTrade(page, dates) {
   const onResponse = async (response) => {
     if (!response.url().includes('getJsonData.cmd') || capturedBld) return
     try {
-      const d = JSON.parse(await response.text())
-      const rows = d.output || []
-      const first = rows[0] || {}
-      // Task 1에서 확인한 실제 필드명으로 조건 교체
-      if (rows.length > MIN_ROWS && Object.keys(first).some(k => k.toUpperCase().includes('PRGM'))) {
+      // MDCSTAT02601 코드가 포함된 bld이면 캡처
+      if (lastReqBld && lastReqBld.includes('MDCSTAT026')) {
         capturedBld = lastReqBld
         capturedParams = lastReqParams
       }
@@ -40,7 +38,7 @@ async function collectProgramTrade(page, dates) {
   page.removeListener('request', onRequest)
   page.removeListener('response', onResponse)
 
-  if (!capturedBld) throw new Error('[program] 프로그램 순매수 bld 캡처 실패')
+  if (!capturedBld) throw new Error('[program] 프로그램매매 bld 캡처 실패 (MDCSTAT026xx 없음)')
 
   const bldSuffix = capturedBld.replace('dbms/MDC/STAT/standard/', '')
   const baseObj = Object.fromEntries(

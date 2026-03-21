@@ -3,9 +3,11 @@ import DateRangePicker from './components/DateRangePicker'
 import CollectButton from './components/CollectButton'
 import EtfTab from './components/tabs/EtfTab'
 import InvestorTab from './components/tabs/InvestorTab'
+import SupplyTab from './components/tabs/SupplyTab'
 const TABS = [
   { id: 'etf', label: 'ETF 순자산변화' },
   { id: 'investor', label: '투자자별 순매수' },
+  { id: 'supply', label: '공매도' },
 ]
 
 function getDefaultDateRange() {
@@ -109,6 +111,7 @@ export default function App() {
       <main className="max-w-7xl mx-auto px-4 py-6">
         {activeTab === 'etf' && <EtfTab {...tabProps} />}
         {activeTab === 'investor' && <InvestorTab {...tabProps} />}
+        {activeTab === 'supply' && <SupplyTab {...tabProps} />}
       </main>
 
       {/* Toast */}

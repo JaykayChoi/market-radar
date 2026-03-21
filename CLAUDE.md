@@ -36,6 +36,7 @@ server/
     foreign.js          — 외국인/기관 순매수 collection (response intercept)
     stock.js            — 전종목 주식 종가 collection (MDCSTAT18801)
     industry.js         — 업종별 등락률 collection
+    shortstock.js       — 공매도 잔고/거래 상위 50 collection (코스피+코스닥)
   processor/
     etf.js              — ETF data transformation → SQLite
     foreign.js          — 투자자별 순매수 transformation → SQLite
@@ -54,6 +55,7 @@ src/
     tabs/
       EtfTab.jsx        — ETF 순자산변화 탭
       InvestorTab.jsx   — 투자자별 순매수 탭
+      SupplyTab.jsx     — 공매도 탭 (잔고/거래 상위 100종목)
 data/
   market_radar.db       — SQLite DB (git-ignored)
   raw/                  — Raw JSON snapshots per collection run
@@ -66,6 +68,7 @@ browser_profile/        — Chromium persistent profile (KRX login session)
 |---|---|
 | ETF 순자산변화 | IRP 적격 ETF 순설정액 (주가효과 제거), 테마 분류 |
 | 투자자별 순매수 | 외국인/기관 순매수 상위 종목, 기간: 1일/3일/1주/2주 |
+| 공매도 | 공매도 잔고/거래 상위 100종목 (코스피+코스닥 각 50, 가장 최근 날짜 기준) |
 
 ## Collection flow
 
@@ -74,14 +77,17 @@ browser_profile/        — Chromium persistent profile (KRX login session)
 2. 외국인/기관 순매수 (4 periods: 1일전, 3일전, 1주전, 2주전)
 3. 전종목 주식 종가
 4. 업종별 등락률
+5. 공매도 잔고 상위 50 × 2시장 (MDC02030304, MDCSTAT30801)
+6. 공매도 거래 상위 50 × 2시장 (MDC02030204, MDCSTAT30401)
 
 ## KRX API notes
 
 - Base URL: `https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd` (POST)
 - Auth: session cookies from persistent browser profile (no API key)
-- Response format: `{"output": [...]}` — array is in `output`, not `data`
+- Response format: `{"output": [...]}` or `{"OutBlock_1": [...]}` — check both keys
 - `foreign.js` and `stock.js` use response interception at page load to discover bld codes dynamically — do NOT hardcode these
 - `MDCSTAT01501` returns 0 rows regardless of session — use `MDCSTAT18801` from `MDC0201020105`
+- 공매도 메뉴: bld path가 `dbms/MDC/STAT/srt/` (standard 아님), mktTpCd=1(코스피)/2(코스닥)
 
 ## SQLite tables
 
@@ -90,4 +96,6 @@ browser_profile/        — Chromium persistent profile (KRX login session)
 - `investor_netbuy` — 투자자별 순매수 (외국인/기관 등)
 - `stock_prices` — 전종목 종가
 - `industry` — 업종별 지수
+- `short_balance` — 공매도 잔고 상위 (date, code, name, balance_qty, balance_amt, balance_ratio)
+- `short_trade` — 공매도 거래 상위 (date, code, name, short_val, total_val, short_ratio)
 - `collected_dates` — 수집 완료 날짜 기록

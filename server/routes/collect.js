@@ -83,11 +83,10 @@ async function runCollection(sessionId, startDate, endDate) {
   const { collectStock } = require('../collector/stock')
   const { collectIndustry } = require('../collector/industry')
   const { collectShortBalance, collectShortTrade } = require('../collector/shortstock')
-  const { collectProgramTrade } = require('../collector/program')
   const { processEtf } = require('../processor/etf')
   const { processForeign } = require('../processor/foreign')
 
-  const TOTAL = 7
+  const TOTAL = 6
   const rawDir = path.join(__dirname, '../../data/raw')
   if (!fs.existsSync(rawDir)) fs.mkdirSync(rawDir, { recursive: true })
 
@@ -163,11 +162,11 @@ async function runCollection(sessionId, startDate, endDate) {
       const balanceRows = Object.entries(shortBalanceRaw).flatMap(([date, rows]) =>
         rows.map(r => ({
           date,
-          code: r.ISU_SRT_CD || r.ISU_CD,
-          name: r.ISU_ABBRV || r.ISU_NM,
-          balance_qty: toInt(r.BALANCE_QTY),    // ← Task 1 실제 필드명으로 교체
-          balance_amt: toNum(r.BALANCE_AMT),    // ← Task 1 실제 필드명으로 교체
-          balance_ratio: toNum(r.BALANCE_RT),   // ← Task 1 실제 필드명으로 교체
+          code: r.ISU_CD,
+          name: r.ISU_ABBRV,
+          balance_qty: toInt(r.BAL_QTY),
+          balance_amt: toNum(r.BAL_AMT),
+          balance_ratio: toNum(r.BAL_RTO),
         }))
       )
       if (balanceRows.length > 0) db.upsertShortBalance(balanceRows)
@@ -180,14 +179,11 @@ async function runCollection(sessionId, startDate, endDate) {
       const tradeRows = Object.entries(shortTradeRaw).flatMap(([date, rows]) =>
         rows.map(r => ({
           date,
-          code: r.ISU_SRT_CD || r.ISU_CD,
-          name: r.ISU_ABBRV || r.ISU_NM,
-          short_vol: toInt(r.SHRT_SELL_VOL),      // ← Task 1 실제 필드명으로 교체
-          total_vol: toInt(r.TOT_TRDVOL),          // ← Task 1 실제 필드명으로 교체
-          vol_ratio:  toNum(r.SHRT_SELL_RT),       // ← Task 1 실제 필드명으로 교체
-          short_val:  toNum(r.SHRT_SELL_AMT),      // ← Task 1 실제 필드명으로 교체
-          total_val:  toNum(r.TOT_TRDVAL),          // ← Task 1 실제 필드명으로 교체
-          val_ratio:  toNum(r.SHRT_SELL_AMT_RT),   // ← Task 1 실제 필드명으로 교체
+          code: r.ISU_CD,
+          name: r.ISU_ABBRV,
+          short_val:   toNum(r.CVSRTSELL_TRDVAL),  // 당일 공매도 거래대금
+          total_val:   toNum(r.ACC_TRDVAL),          // 전체 거래대금
+          short_ratio: toNum(r.TDD_SRTSELL_WT),      // 공매도 비율(%)
         }))
       )
       if (tradeRows.length > 0) db.upsertShortTrade(tradeRows)
@@ -198,36 +194,11 @@ async function runCollection(sessionId, startDate, endDate) {
     fs.writeFileSync(path.join(rawDir, `krx_raw_${today}_short.json`), JSON.stringify({ shortBalanceRaw, shortTradeRaw }))
     emitProgress(sessionId, 5, TOTAL, '공매도 데이터 완료', 'running')
 
-    // 6. 프로그램 순매수
-    emitProgress(sessionId, 6, TOTAL, '프로그램 순매수 수집 중...', 'running')
-    try {
-      const programRaw = await collectProgramTrade(page, allDates)
-      const programRows = Object.entries(programRaw).flatMap(([date, rows]) =>
-        rows.map(r => ({
-          date,
-          code: r.ISU_SRT_CD || r.ISU_CD,
-          name: r.ISU_ABBRV || r.ISU_NM,
-          arb_buy:     toNum(r.PRGM_BUY_AMT),      // ← Task 1 실제 필드명으로 교체
-          arb_sell:    toNum(r.PRGM_SELL_AMT),     // ← Task 1 실제 필드명으로 교체
-          arb_net:     toNum(r.PRGM_NETBID_AMT),   // ← Task 1 실제 필드명으로 교체
-          nonarb_buy:  toNum(r.PRGM_BUY_AMT2),     // ← Task 1 실제 필드명으로 교체
-          nonarb_sell: toNum(r.PRGM_SELL_AMT2),    // ← Task 1 실제 필드명으로 교체
-          nonarb_net:  toNum(r.PRGM_NETBID_AMT2),  // ← Task 1 실제 필드명으로 교체
-        }))
-      )
-      if (programRows.length > 0) db.upsertProgramTrade(programRows)
-      else console.warn('[collect] 프로그램 순매수 0건 — upsert 생략')
-      fs.writeFileSync(path.join(rawDir, `krx_raw_${today}_program.json`), JSON.stringify(programRaw))
-    } catch (err) {
-      console.warn('[collect] 프로그램 순매수 수집 실패 (skip):', err.message)
-    }
-    emitProgress(sessionId, 6, TOTAL, '프로그램 순매수 완료', 'running')
-
-    db.upsertCollectedDate(today, ['etf','foreign','stock','industry','short_balance','short_trade','program_trade'])
+    db.upsertCollectedDate(today, ['etf','foreign','stock','industry','short_balance','short_trade'])
     console.log(`[collect] 완료: ${today}`)
 
     await closeBrowser()
-    emitProgress(sessionId, 7, TOTAL, '완료', 'done')
+    emitProgress(sessionId, 6, TOTAL, '완료', 'done')
 
   } catch (err) {
     console.error('[collect] 오류:', err)

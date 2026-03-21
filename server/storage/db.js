@@ -24,6 +24,14 @@ if (fCols.length > 0 && !fCols.includes('start_date')) {
   db.exec('DROP TABLE foreign_flow')
 }
 
+// short_trade 스키마 마이그레이션 (거래량 기반 → 거래대금 기반)
+// MDCSTAT30401은 거래대금 기준 상위 50종목 - 거래량 컬럼 없음
+const stCols = db.prepare("PRAGMA table_info(short_trade)").all().map(c => c.name)
+if (stCols.length > 0 && stCols.includes('short_vol')) {
+  db.exec('DROP TABLE short_trade')
+}
+
+
 // 구형 investor_type 데이터 ('foreign'/'institution' 문자열) 삭제 → 코드 방식으로 재수집
 const oldFmt = db.prepare("SELECT COUNT(*) as n FROM foreign_flow WHERE investor_type IN ('foreign', 'institution')").get()
 if (oldFmt && oldFmt.n > 0) {
@@ -102,27 +110,12 @@ db.exec(`
     date TEXT,
     code TEXT,
     name TEXT,
-    short_vol INTEGER,
-    total_vol INTEGER,
-    vol_ratio REAL,
     short_val REAL,
     total_val REAL,
-    val_ratio REAL,
+    short_ratio REAL,
     PRIMARY KEY (date, code)
   );
 
-  CREATE TABLE IF NOT EXISTS program_trade (
-    date TEXT,
-    code TEXT,
-    name TEXT,
-    arb_buy REAL,
-    arb_sell REAL,
-    arb_net REAL,
-    nonarb_buy REAL,
-    nonarb_sell REAL,
-    nonarb_net REAL,
-    PRIMARY KEY (date, code)
-  );
 `)
 
 const upsertEtfPrices = (rows) => {
@@ -181,21 +174,13 @@ const upsertShortBalance = (rows) => {
 
 const upsertShortTrade = (rows) => {
   const stmt = db.prepare(`
-    INSERT OR REPLACE INTO short_trade (date, code, name, short_vol, total_vol, vol_ratio, short_val, total_val, val_ratio)
-    VALUES (@date, @code, @name, @short_vol, @total_vol, @vol_ratio, @short_val, @total_val, @val_ratio)
+    INSERT OR REPLACE INTO short_trade (date, code, name, short_val, total_val, short_ratio)
+    VALUES (@date, @code, @name, @short_val, @total_val, @short_ratio)
   `)
   const insertMany = db.transaction((rows) => { for (const r of rows) stmt.run(r) })
   insertMany(rows)
 }
 
-const upsertProgramTrade = (rows) => {
-  const stmt = db.prepare(`
-    INSERT OR REPLACE INTO program_trade (date, code, name, arb_buy, arb_sell, arb_net, nonarb_buy, nonarb_sell, nonarb_net)
-    VALUES (@date, @code, @name, @arb_buy, @arb_sell, @arb_net, @nonarb_buy, @nonarb_sell, @nonarb_net)
-  `)
-  const insertMany = db.transaction((rows) => { for (const r of rows) stmt.run(r) })
-  insertMany(rows)
-}
 
 const upsertCollectedDate = (date, stagesOk) => {
   const stmt = db.prepare(`
@@ -248,28 +233,20 @@ const getShortBalanceData = (start, end) => {
   return db.prepare(`
     SELECT date, code, name, balance_qty, balance_amt, balance_ratio
     FROM short_balance
-    WHERE date >= ? AND date <= ?
-    ORDER BY date DESC, balance_amt DESC
+    WHERE date = (SELECT MAX(date) FROM short_balance WHERE date >= ? AND date <= ?)
+    ORDER BY balance_amt DESC
   `).all(start || '19000101', end || '99991231')
 }
 
 const getShortTradeData = (start, end) => {
   return db.prepare(`
-    SELECT date, code, name, short_vol, total_vol, vol_ratio, short_val, total_val, val_ratio
+    SELECT date, code, name, short_val, total_val, short_ratio
     FROM short_trade
-    WHERE date >= ? AND date <= ?
-    ORDER BY date DESC, val_ratio DESC
+    WHERE date = (SELECT MAX(date) FROM short_trade WHERE date >= ? AND date <= ?)
+    ORDER BY short_ratio DESC
   `).all(start || '19000101', end || '99991231')
 }
 
-const getProgramTradeData = (start, end) => {
-  return db.prepare(`
-    SELECT date, code, name, arb_buy, arb_sell, arb_net, nonarb_buy, nonarb_sell, nonarb_net
-    FROM program_trade
-    WHERE date >= ? AND date <= ?
-    ORDER BY date DESC, (arb_net + nonarb_net) DESC
-  `).all(start || '19000101', end || '99991231')
-}
 
 const getCollectedDates = (start, end) => {
   return db.prepare(`
@@ -307,7 +284,6 @@ module.exports = {
   upsertIndustry,
   upsertShortBalance,
   upsertShortTrade,
-  upsertProgramTrade,
   upsertCollectedDate,
   getEtfData,
   getForeignData,
@@ -315,7 +291,6 @@ module.exports = {
   getIndustryData,
   getShortBalanceData,
   getShortTradeData,
-  getProgramTradeData,
   getCollectedDates,
   getNearestPriorDate,
   getInvestorTypes,
