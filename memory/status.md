@@ -4,9 +4,9 @@ description: 다음 구현 예정 기능 — 세션 시작 시 반드시 읽을 
 type: project
 ---
 
-## 현재 상태 (2026-03-21)
+## 현재 상태 (2026-03-22)
 
-**미국 13F 기관 포지션 탭 — 구현 완료**
+**풋/콜 옵션 탭 — 구현 진행 중 (UI 먼저)**
 
 ## 구현된 탭 목록
 
@@ -19,24 +19,21 @@ type: project
 | 미국 ETF | 주요 ETF 27개 가격/AUM/성과 (Yahoo+FMP) |
 | 미국 매크로 | 10개 핵심 거시지표 (FRED) |
 | 미국 13F 기관 | SEC EDGAR 13F 기관 포지션 (50개 기관, 전분기 비교) |
+| 미국 IPO/실적 캘린더 | Finnhub IPO + Earnings Calendar, 달력 UI, TOP10/50/100 하이라이트 |
 
-## 미국 13F 탭 상세
+## 미국 IPO/실적 캘린더 탭 상세
 
-**데이터 소스:** SEC EDGAR 13F-HR (submissions JSON → infotable XML 파싱)
+**데이터 소스:** Finnhub Calendar API (IPO + Earnings)
 
-**라우트:** `server/routes/edgar13f.js`
-- GET `/api/edgar13f/institutions` — 50개 기관 메타데이터 (AM 22 + HF 28)
-- GET `/api/edgar13f/:cik/latest` — 최신 + 전분기 13F 비교, 상위 100 포지션
+**라우트:** `server/routes/finnhub.js` (기존 라우트에 추가)
+- GET `/api/finnhub/calendar/ipo?from=&to=`
+- GET `/api/finnhub/calendar/earnings?from=&to=` (기업명 자동 조회, 인메모리 캐시)
 
 **기능:**
-- 전분기 대비 주식수 변화 (new/increased/decreased/held)
-- 청산 종목 표시 (직전 분기에 있었지만 현재 없는 종목)
-- 전체 XML 기준 총 포트폴리오 금액 + 변화율
-- 전체 보유 종목 수 (상위 100개만 표시)
-- SEC EDGAR 페이지 링크
-- 24시간 서버 캐시
+- 월별 달력 그리드 (IPO 초록 / 실적 파랑)
+- 시총 3단계 하이라이트 (TOP10 빨강 / TOP50 노랑 / TOP100 파랑)
+- 날짜 클릭 → 우측 상세 패널 (IPO 상세 + 실적 EPS/매출)
+- 필터 (전체/IPO/실적발표)
+- 모든 기업 회사명 표시 (Finnhub profile API + 캐시)
 
-**테스트:** `test/unit/edgar13f-route.test.js` — 24케이스 통과
-**E2E:** `test/e2e/ui.spec.js` — 13F 탭 5케이스 포함, 18/18 통과
-
-**다음 작업:** feature_candidates_us.md 참고 — 수익률 곡선 시각화 또는 섹터 히트맵 등
+**다음 작업:** 풋/콜 옵션 탭 구현

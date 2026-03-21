@@ -9,6 +9,7 @@ import UsMacroTab from './components/tabs/UsMacroTab'
 import UsEtfTab from './components/tabs/us/UsEtfTab'
 import Us13fTab from './components/tabs/us/Us13fTab'
 import UsCalendarTab from './components/tabs/us/UsCalendarTab'
+import UsOptionsTab from './components/tabs/us/UsOptionsTab'
 
 const KR_TABS = [
   { id: 'etf',          label: 'ETF 순자산변화'  },
@@ -22,6 +23,7 @@ const US_TABS = [
   { id: 'us_macro', label: '매크로' },
   { id: 'us_13f',      label: '13F 기관' },
   { id: 'us_calendar', label: 'IPO/실적 캘린더' },
+  { id: 'us_options',  label: '옵션' },
 ]
 
 const MARKETS = [
@@ -168,6 +170,7 @@ export default function App() {
         {market === 'us' && activeTab === 'us_macro' && <UsMacroTab />}
         {market === 'us' && activeTab === 'us_13f'      && <Us13fTab />}
         {market === 'us' && activeTab === 'us_calendar' && <UsCalendarTab />}
+        {market === 'us' && activeTab === 'us_options'  && <UsOptionsTab />}
       </main>
 
       {/* Toast */}
