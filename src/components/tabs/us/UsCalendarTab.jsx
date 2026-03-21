@@ -242,8 +242,8 @@ export default function UsCalendarTab() {
     // 실적을 시총 순으로 정렬 (top50 먼저, 그 안에서 rank 순)
     for (const ev of Object.values(map)) {
       ev.earnings.sort((a, b) => {
-        const ra = TOP50[a.symbol]?.rank ?? 9999
-        const rb = TOP50[b.symbol]?.rank ?? 9999
+        const ra = TOP_COMPANIES[a.symbol]?.rank ?? 9999
+        const rb = TOP_COMPANIES[b.symbol]?.rank ?? 9999
         return ra - rb
       })
     }
