@@ -15,6 +15,9 @@ data/
 # 구 raw JSON (루트 위치)
 krx_raw_*.json
 
+# 탐색용 임시 스크립트
+scripts/
+
 # Excel 출력물 및 Windows 잠금 파일
 *.xlsx
 ~$*.xlsx
