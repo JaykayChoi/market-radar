@@ -190,10 +190,22 @@ export default function UsOptionsTab() {
             </table>
           </div>
 
-          <p className="text-xs text-gray-400 mt-2">
-            ※ P/C Ratio &gt; 1.0: 풋 옵션 거래 &gt; 콜 옵션 (약세 심리). &lt; 0.7: 강세 심리. CBOE 일간 데이터 기준.
-          </p>
-          <p className="text-xs text-orange-500 mt-1">※ 현재 모의 데이터입니다. CBOE 실제 데이터 연동 예정.</p>
+          {/* PCR 해석 가이드 */}
+          <div className="mt-4 bg-gray-50 rounded-lg border border-gray-200 p-4 text-xs text-gray-600 space-y-2">
+            <p className="font-semibold text-gray-700 text-sm mb-2">Put/Call Ratio 해석</p>
+            <div className="space-y-1.5">
+              <div><span className="font-semibold text-gray-800">Put/Call Ratio란?</span> — 풋 옵션 거래량을 콜 옵션 거래량으로 나눈 값. 시장 참여자들의 강세/약세 심리를 측정하는 대표적 역방향 지표.</div>
+              <div><span className="font-semibold text-gray-800">전체 P/C</span> — 모든 옵션(지수+개별주식) 합산. 시장 전체 심리를 반영.</div>
+              <div><span className="font-semibold text-gray-800">개별주식 P/C (Equity)</span> — 개별 종목 옵션만 집계. 개인 투자자 심리에 더 민감. 보통 0.5~0.8 범위.</div>
+              <div><span className="font-semibold text-gray-800">지수 P/C (Index)</span> — S&P500 등 지수 옵션만 집계. 기관 헤지 비중이 높아 항상 1.0 이상이 정상.</div>
+              <div className="pt-1 border-t border-gray-200">
+                <span className="font-semibold text-gray-800">역방향 지표로 활용:</span>
+                <span className="ml-1">P/C가 극도로 높으면(1.2+) 시장이 공포에 빠져 있으므로 오히려 <span className="text-green-600 font-medium">반등 신호</span>로, 극도로 낮으면(0.5 이하) 과도한 낙관으로 <span className="text-red-600 font-medium">조정 신호</span>로 해석.</span>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-xs text-orange-500 mt-2">※ 현재 모의 데이터입니다. CBOE 실제 데이터 연동 예정.</p>
         </div>
       )}
 
@@ -297,9 +309,26 @@ export default function UsOptionsTab() {
             <span className="flex items-center gap-1"><span className="w-3 h-2 bg-green-50 border border-green-200 inline-block" /> ITM (콜)</span>
             <span className="flex items-center gap-1"><span className="w-3 h-2 bg-red-50 border border-red-200 inline-block" /> ITM (풋)</span>
             <span className="flex items-center gap-1"><span className="w-3 h-2 bg-yellow-50 border border-yellow-200 inline-block" /> ATM (현재가 근처)</span>
-            <span>IV = 내재 변동성 · OI = 미결제약정</span>
           </div>
-          <p className="text-xs text-orange-500 mt-1">※ 현재 모의 데이터입니다. Yahoo Finance 옵션 체인 실제 연동 예정.</p>
+
+          {/* 용어 해석 가이드 */}
+          <div className="mt-4 bg-gray-50 rounded-lg border border-gray-200 p-4 text-xs text-gray-600 space-y-2">
+            <p className="font-semibold text-gray-700 text-sm mb-2">옵션 체인 읽는 법</p>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1.5">
+              <div><span className="font-semibold text-gray-800">행사가 (Strike)</span> — 옵션 만기 시 매수/매도할 수 있는 가격. 현재가보다 낮은 콜 = ITM(내가격), 높은 콜 = OTM(외가격).</div>
+              <div><span className="font-semibold text-gray-800">최종가 (Last)</span> — 해당 옵션 계약의 마지막 체결 가격. 옵션 1계약 = 주식 100주.</div>
+              <div><span className="font-semibold text-gray-800">Bid / Ask</span> — 현재 매수호가 / 매도호가. 스프레드가 좁을수록 유동성이 풍부.</div>
+              <div><span className="font-semibold text-gray-800">거래량 (Volume)</span> — 당일 체결된 계약 수. 급등 시 대규모 포지션 진입/청산 신호.</div>
+              <div><span className="font-semibold text-gray-800">OI (미결제약정)</span> — 아직 청산되지 않은 총 계약 수. OI가 높은 행사가 = 시장 참여자가 주목하는 지지/저항 수준.</div>
+              <div><span className="font-semibold text-gray-800">콜 옵션 (Call)</span> — 만기일에 행사가로 <span className="text-green-600 font-medium">살 수 있는 권리</span>. 주가 상승 시 수익. 콜 거래량 증가 = 강세 베팅.</div>
+              <div><span className="font-semibold text-gray-800">풋 옵션 (Put)</span> — 만기일에 행사가로 <span className="text-red-600 font-medium">팔 수 있는 권리</span>. 주가 하락 시 수익 또는 헤지 목적.</div>
+              <div><span className="font-semibold text-gray-800">P/C Ratio</span> — 풋 거래량 / 콜 거래량. &gt;1.0이면 약세 심리(풋 많음), &lt;0.7이면 강세 심리(콜 많음). 극단값은 역방향 지표로 활용.</div>
+              <div><span className="font-semibold text-gray-800">ITM (내가격)</span> — 현재 행사하면 이익인 옵션. 콜: 행사가 &lt; 현재가. 풋: 행사가 &gt; 현재가.</div>
+              <div><span className="font-semibold text-gray-800">ATM (등가격)</span> — 행사가 ≈ 현재가. 시간가치가 가장 크고 감마가 최대인 구간.</div>
+            </div>
+          </div>
+
+          <p className="text-xs text-orange-500 mt-2">※ 현재 모의 데이터입니다. Yahoo Finance 옵션 체인 실제 연동 예정.</p>
         </div>
       )}
     </div>
