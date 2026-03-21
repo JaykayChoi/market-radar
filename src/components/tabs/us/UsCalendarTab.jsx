@@ -34,8 +34,9 @@ function fmtRevenue(v) {
 
 const HOUR_LABEL = { bmo: '장전', amc: '장후', dmh: '장중' }
 
-// 시가총액 상위 50 기업 (2026 기준 추정, rank = 시총 순위)
-const TOP50 = {
+// 시가총액 상위 100 기업 (2026 기준 추정, rank = 시총 순위)
+const TOP_COMPANIES = {
+  // TOP 10
   AAPL:  { name: 'Apple', rank: 1 },
   MSFT:  { name: 'Microsoft', rank: 2 },
   NVDA:  { name: 'NVIDIA', rank: 3 },
@@ -43,11 +44,12 @@ const TOP50 = {
   GOOGL: { name: 'Alphabet (A)', rank: 5 },
   GOOG:  { name: 'Alphabet (C)', rank: 5 },
   META:  { name: 'Meta Platforms', rank: 6 },
-  BRK_B: { name: 'Berkshire Hathaway', rank: 7 },
+  'BRK-B': { name: 'Berkshire Hathaway', rank: 7 },
   'BRK.B': { name: 'Berkshire Hathaway', rank: 7 },
   TSLA:  { name: 'Tesla', rank: 8 },
   AVGO:  { name: 'Broadcom', rank: 9 },
   LLY:   { name: 'Eli Lilly', rank: 10 },
+  // TOP 11-50
   JPM:   { name: 'JPMorgan Chase', rank: 11 },
   WMT:   { name: 'Walmart', rank: 12 },
   V:     { name: 'Visa', rank: 13 },
@@ -88,14 +90,89 @@ const TOP50 = {
   CAT:   { name: 'Caterpillar', rank: 48 },
   AMGN:  { name: 'Amgen', rank: 49 },
   NOW:   { name: 'ServiceNow', rank: 50 },
+  // TOP 51-100
+  ISRG:  { name: 'Intuitive Surgical', rank: 51 },
+  AMAT:  { name: 'Applied Materials', rank: 52 },
+  GS:    { name: 'Goldman Sachs', rank: 53 },
+  BX:    { name: 'Blackstone', rank: 54 },
+  UBER:  { name: 'Uber', rank: 55 },
+  NEE:   { name: 'NextEra Energy', rank: 56 },
+  SYK:   { name: 'Stryker', rank: 57 },
+  LRCX:  { name: 'Lam Research', rank: 58 },
+  BKNG:  { name: 'Booking Holdings', rank: 59 },
+  MDLZ:  { name: 'Mondelez', rank: 60 },
+  SCHW:  { name: 'Charles Schwab', rank: 61 },
+  ADP:   { name: 'ADP', rank: 62 },
+  VRTX:  { name: 'Vertex Pharma', rank: 63 },
+  TMUS:  { name: 'T-Mobile', rank: 64 },
+  BMY:   { name: 'Bristol-Myers Squibb', rank: 65 },
+  REGN:  { name: 'Regeneron', rank: 66 },
+  PLD:   { name: 'Prologis', rank: 67 },
+  PANW:  { name: 'Palo Alto Networks', rank: 68 },
+  KLAC:  { name: 'KLA Corp', rank: 69 },
+  BSX:   { name: 'Boston Scientific', rank: 70 },
+  AXP:   { name: 'American Express', rank: 71 },
+  FI:    { name: 'Fiserv', rank: 72 },
+  SNPS:  { name: 'Synopsys', rank: 73 },
+  CDNS:  { name: 'Cadence Design', rank: 74 },
+  CME:   { name: 'CME Group', rank: 75 },
+  SO:    { name: 'Southern Company', rank: 76 },
+  ETN:   { name: 'Eaton Corp', rank: 77 },
+  T:     { name: 'AT&T', rank: 78 },
+  PFE:   { name: 'Pfizer', rank: 79 },
+  MO:    { name: 'Altria', rank: 80 },
+  CI:    { name: 'Cigna', rank: 81 },
+  CB:    { name: 'Chubb', rank: 82 },
+  DE:    { name: 'Deere & Co', rank: 83 },
+  GILD:  { name: 'Gilead Sciences', rank: 84 },
+  DUK:   { name: 'Duke Energy', rank: 85 },
+  ICE:   { name: 'Intercontinental Exchange', rank: 86 },
+  MMC:   { name: 'Marsh McLennan', rank: 87 },
+  CL:    { name: 'Colgate-Palmolive', rank: 88 },
+  SHW:   { name: 'Sherwin-Williams', rank: 89 },
+  CMG:   { name: 'Chipotle', rank: 90 },
+  MCO:   { name: 'Moody\'s', rank: 91 },
+  ZTS:   { name: 'Zoetis', rank: 92 },
+  PYPL:  { name: 'PayPal', rank: 93 },
+  USB:   { name: 'U.S. Bancorp', rank: 94 },
+  APH:   { name: 'Amphenol', rank: 95 },
+  ITW:   { name: 'Illinois Tool Works', rank: 96 },
+  MU:    { name: 'Micron Technology', rank: 97 },
+  ABNB:  { name: 'Airbnb', rank: 98 },
+  MRVL:  { name: 'Marvell Technology', rank: 99 },
+  CRWD:  { name: 'CrowdStrike', rank: 100 },
+}
+
+// 3단계 등급 (rank 기반)
+function getTier(symbol) {
+  const c = TOP_COMPANIES[symbol]
+  if (!c) return null
+  if (c.rank <= 10) return 'top10'
+  if (c.rank <= 50) return 'top50'
+  return 'top100'
+}
+
+const TIER_CONFIG = {
+  top10:  { bg: 'bg-red-50',    dateBg: 'bg-red-100',    badge: 'bg-red-200 text-red-800',    label: 'TOP10' },
+  top50:  { bg: 'bg-amber-50',  dateBg: 'bg-amber-100',  badge: 'bg-amber-200 text-amber-800', label: 'TOP50' },
+  top100: { bg: 'bg-blue-50',   dateBg: 'bg-blue-50',    badge: 'bg-blue-200 text-blue-800',   label: 'TOP100' },
 }
 
 function getCompanyName(symbol) {
-  return TOP50[symbol]?.name || symbol
+  return TOP_COMPANIES[symbol]?.name || symbol
 }
 
-function isTop50(symbol) {
-  return symbol in TOP50
+// 날짜의 최상위 tier 계산 (top10 > top50 > top100 > null)
+function getDateTier(ev) {
+  if (!ev) return null
+  let best = null
+  for (const e of ev.earnings) {
+    const tier = getTier(e.symbol)
+    if (tier === 'top10') return 'top10'
+    if (tier === 'top50' && best !== 'top10') best = 'top50'
+    if (tier === 'top100' && !best) best = 'top100'
+  }
+  return best
 }
 
 // ── 컴포넌트 ──────────────────────────────────────────────────────
@@ -139,16 +216,15 @@ export default function UsCalendarTab() {
     if (filter === 'all' || filter === 'ipo') {
       for (const ipo of ipos) {
         if (!ipo.date) continue
-        if (!map[ipo.date]) map[ipo.date] = { ipos: [], earnings: [], hasTop50: false }
+        if (!map[ipo.date]) map[ipo.date] = { ipos: [], earnings: [] }
         map[ipo.date].ipos.push(ipo)
       }
     }
     if (filter === 'all' || filter === 'earnings') {
       for (const e of earnings) {
         if (!e.date) continue
-        if (!map[e.date]) map[e.date] = { ipos: [], earnings: [], hasTop50: false }
+        if (!map[e.date]) map[e.date] = { ipos: [], earnings: [] }
         map[e.date].earnings.push(e)
-        if (isTop50(e.symbol)) map[e.date].hasTop50 = true
       }
     }
     // 실적을 시총 순으로 정렬 (top50 먼저, 그 안에서 rank 순)
@@ -216,7 +292,13 @@ export default function UsCalendarTab() {
           <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" /> 실적발표 ({earnings.length})
         </span>
         <span className="flex items-center gap-1">
-          <span className="w-2.5 h-2.5 rounded bg-amber-200 inline-block" /> 시총 TOP50 실적
+          <span className="w-2.5 h-2.5 rounded bg-red-100 inline-block" /> TOP10
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="w-2.5 h-2.5 rounded bg-amber-100 inline-block" /> TOP50
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="w-2.5 h-2.5 rounded bg-blue-50 inline-block border border-blue-200" /> TOP100
         </span>
         {loading && <span className="text-gray-400">로딩 중...</span>}
       </div>
@@ -251,7 +333,7 @@ export default function UsCalendarTab() {
                   onClick={() => setSelected(isSelected ? null : ymd)}
                   className={`min-h-[80px] p-1.5 cursor-pointer transition-colors hover:bg-blue-50 ${
                     isSelected ? 'ring-2 ring-blue-500 ring-inset' : ''
-                  } ${ev?.hasTop50 ? 'bg-amber-50' : 'bg-white'}`}
+                  } ${TIER_CONFIG[getDateTier(ev)]?.dateBg || 'bg-white'}`}
                 >
                   <div className={`text-xs font-medium mb-1 ${
                     isToday ? 'bg-blue-600 text-white w-5 h-5 rounded-full flex items-center justify-center' :
@@ -327,14 +409,16 @@ export default function UsCalendarTab() {
                 ))}
                 {/* 실적발표 목록 */}
                 {selectedEvents.earnings.map((e, i) => (
-                  <div key={`earn-${i}`} className={`px-3 py-2 ${isTop50(e.symbol) ? 'bg-amber-50/50' : ''}`}>
-                    <div className="flex items-center gap-1.5 mb-0.5">
+                  <div key={`earn-${i}`} className={`px-3 py-2 ${TIER_CONFIG[getTier(e.symbol)]?.bg || ''}`}>
+                    <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                       <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
                       <span className="text-xs font-bold text-blue-700">실적</span>
                       <span className="text-xs font-semibold text-gray-900">{getCompanyName(e.symbol)}</span>
-                      <span className="text-[10px] text-gray-400">{e.symbol}</span>
-                      {isTop50(e.symbol) && (
-                        <span className="text-[10px] px-1 py-0.5 rounded bg-amber-200 text-amber-800 font-medium">TOP{TOP50[e.symbol].rank}</span>
+                      {TOP_COMPANIES[e.symbol] && <span className="text-[10px] text-gray-400">{e.symbol}</span>}
+                      {getTier(e.symbol) && (
+                        <span className={`text-[10px] px-1 py-0.5 rounded font-medium ${TIER_CONFIG[getTier(e.symbol)].badge}`}>
+                          #{TOP_COMPANIES[e.symbol].rank}
+                        </span>
                       )}
                       {e.hour && HOUR_LABEL[e.hour] && (
                         <span className="text-[10px] text-gray-400">({HOUR_LABEL[e.hour]})</span>
