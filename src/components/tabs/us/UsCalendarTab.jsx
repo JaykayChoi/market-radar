@@ -34,6 +34,70 @@ function fmtRevenue(v) {
 
 const HOUR_LABEL = { bmo: '장전', amc: '장후', dmh: '장중' }
 
+// 시가총액 상위 50 기업 (2026 기준 추정, rank = 시총 순위)
+const TOP50 = {
+  AAPL:  { name: 'Apple', rank: 1 },
+  MSFT:  { name: 'Microsoft', rank: 2 },
+  NVDA:  { name: 'NVIDIA', rank: 3 },
+  AMZN:  { name: 'Amazon', rank: 4 },
+  GOOGL: { name: 'Alphabet (A)', rank: 5 },
+  GOOG:  { name: 'Alphabet (C)', rank: 5 },
+  META:  { name: 'Meta Platforms', rank: 6 },
+  BRK_B: { name: 'Berkshire Hathaway', rank: 7 },
+  'BRK.B': { name: 'Berkshire Hathaway', rank: 7 },
+  TSLA:  { name: 'Tesla', rank: 8 },
+  AVGO:  { name: 'Broadcom', rank: 9 },
+  LLY:   { name: 'Eli Lilly', rank: 10 },
+  JPM:   { name: 'JPMorgan Chase', rank: 11 },
+  WMT:   { name: 'Walmart', rank: 12 },
+  V:     { name: 'Visa', rank: 13 },
+  UNH:   { name: 'UnitedHealth', rank: 14 },
+  XOM:   { name: 'ExxonMobil', rank: 15 },
+  MA:    { name: 'Mastercard', rank: 16 },
+  ORCL:  { name: 'Oracle', rank: 17 },
+  COST:  { name: 'Costco', rank: 18 },
+  PG:    { name: 'Procter & Gamble', rank: 19 },
+  HD:    { name: 'Home Depot', rank: 20 },
+  JNJ:   { name: 'Johnson & Johnson', rank: 21 },
+  NFLX:  { name: 'Netflix', rank: 22 },
+  ABBV:  { name: 'AbbVie', rank: 23 },
+  BAC:   { name: 'Bank of America', rank: 24 },
+  CRM:   { name: 'Salesforce', rank: 25 },
+  KO:    { name: 'Coca-Cola', rank: 26 },
+  CVX:   { name: 'Chevron', rank: 27 },
+  MRK:   { name: 'Merck', rank: 28 },
+  AMD:   { name: 'AMD', rank: 29 },
+  PEP:   { name: 'PepsiCo', rank: 30 },
+  TMO:   { name: 'Thermo Fisher', rank: 31 },
+  ADBE:  { name: 'Adobe', rank: 32 },
+  LIN:   { name: 'Linde', rank: 33 },
+  ACN:   { name: 'Accenture', rank: 34 },
+  ABT:   { name: 'Abbott Labs', rank: 35 },
+  CSCO:  { name: 'Cisco', rank: 36 },
+  WFC:   { name: 'Wells Fargo', rank: 37 },
+  MCD:   { name: 'McDonald\'s', rank: 38 },
+  DHR:   { name: 'Danaher', rank: 39 },
+  TXN:   { name: 'Texas Instruments', rank: 40 },
+  PM:    { name: 'Philip Morris', rank: 41 },
+  QCOM:  { name: 'Qualcomm', rank: 42 },
+  MS:    { name: 'Morgan Stanley', rank: 43 },
+  DIS:   { name: 'Walt Disney', rank: 44 },
+  INTU:  { name: 'Intuit', rank: 45 },
+  GE:    { name: 'GE Aerospace', rank: 46 },
+  IBM:   { name: 'IBM', rank: 47 },
+  CAT:   { name: 'Caterpillar', rank: 48 },
+  AMGN:  { name: 'Amgen', rank: 49 },
+  NOW:   { name: 'ServiceNow', rank: 50 },
+}
+
+function getCompanyName(symbol) {
+  return TOP50[symbol]?.name || symbol
+}
+
+function isTop50(symbol) {
+  return symbol in TOP50
+}
+
 // ── 컴포넌트 ──────────────────────────────────────────────────────
 
 export default function UsCalendarTab() {
@@ -75,16 +139,25 @@ export default function UsCalendarTab() {
     if (filter === 'all' || filter === 'ipo') {
       for (const ipo of ipos) {
         if (!ipo.date) continue
-        if (!map[ipo.date]) map[ipo.date] = { ipos: [], earnings: [] }
+        if (!map[ipo.date]) map[ipo.date] = { ipos: [], earnings: [], hasTop50: false }
         map[ipo.date].ipos.push(ipo)
       }
     }
     if (filter === 'all' || filter === 'earnings') {
       for (const e of earnings) {
         if (!e.date) continue
-        if (!map[e.date]) map[e.date] = { ipos: [], earnings: [] }
+        if (!map[e.date]) map[e.date] = { ipos: [], earnings: [], hasTop50: false }
         map[e.date].earnings.push(e)
+        if (isTop50(e.symbol)) map[e.date].hasTop50 = true
       }
+    }
+    // 실적을 시총 순으로 정렬 (top50 먼저, 그 안에서 rank 순)
+    for (const ev of Object.values(map)) {
+      ev.earnings.sort((a, b) => {
+        const ra = TOP50[a.symbol]?.rank ?? 9999
+        const rb = TOP50[b.symbol]?.rank ?? 9999
+        return ra - rb
+      })
     }
     return map
   }, [ipos, earnings, filter])
@@ -142,6 +215,9 @@ export default function UsCalendarTab() {
         <span className="flex items-center gap-1">
           <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" /> 실적발표 ({earnings.length})
         </span>
+        <span className="flex items-center gap-1">
+          <span className="w-2.5 h-2.5 rounded bg-amber-200 inline-block" /> 시총 TOP50 실적
+        </span>
         {loading && <span className="text-gray-400">로딩 중...</span>}
       </div>
 
@@ -173,9 +249,9 @@ export default function UsCalendarTab() {
                 <div
                   key={ymd}
                   onClick={() => setSelected(isSelected ? null : ymd)}
-                  className={`bg-white min-h-[80px] p-1.5 cursor-pointer transition-colors hover:bg-blue-50 ${
+                  className={`min-h-[80px] p-1.5 cursor-pointer transition-colors hover:bg-blue-50 ${
                     isSelected ? 'ring-2 ring-blue-500 ring-inset' : ''
-                  }`}
+                  } ${ev?.hasTop50 ? 'bg-amber-50' : 'bg-white'}`}
                 >
                   <div className={`text-xs font-medium mb-1 ${
                     isToday ? 'bg-blue-600 text-white w-5 h-5 rounded-full flex items-center justify-center' :
@@ -251,11 +327,15 @@ export default function UsCalendarTab() {
                 ))}
                 {/* 실적발표 목록 */}
                 {selectedEvents.earnings.map((e, i) => (
-                  <div key={`earn-${i}`} className="px-3 py-2">
+                  <div key={`earn-${i}`} className={`px-3 py-2 ${isTop50(e.symbol) ? 'bg-amber-50/50' : ''}`}>
                     <div className="flex items-center gap-1.5 mb-0.5">
                       <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
                       <span className="text-xs font-bold text-blue-700">실적</span>
-                      <span className="text-xs font-semibold text-gray-900">{e.symbol}</span>
+                      <span className="text-xs font-semibold text-gray-900">{getCompanyName(e.symbol)}</span>
+                      <span className="text-[10px] text-gray-400">{e.symbol}</span>
+                      {isTop50(e.symbol) && (
+                        <span className="text-[10px] px-1 py-0.5 rounded bg-amber-200 text-amber-800 font-medium">TOP{TOP50[e.symbol].rank}</span>
+                      )}
                       {e.hour && HOUR_LABEL[e.hour] && (
                         <span className="text-[10px] text-gray-400">({HOUR_LABEL[e.hour]})</span>
                       )}
