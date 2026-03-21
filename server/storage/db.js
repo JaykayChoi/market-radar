@@ -116,6 +116,20 @@ db.exec(`
     PRIMARY KEY (date, code)
   );
 
+  CREATE TABLE IF NOT EXISTS volume_surge (
+    date TEXT,
+    code TEXT,
+    market TEXT,
+    name TEXT,
+    surge_ratio REAL,
+    close INTEGER,
+    change_rate REAL,
+    volume INTEGER,
+    prev_volume INTEGER,
+    per REAL,
+    PRIMARY KEY (date, code)
+  );
+
 `)
 
 const upsertEtfPrices = (rows) => {
@@ -181,6 +195,24 @@ const upsertShortTrade = (rows) => {
   insertMany(rows)
 }
 
+
+const upsertVolumeSurge = (rows) => {
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO volume_surge (date, code, market, name, surge_ratio, close, change_rate, volume, prev_volume, per)
+    VALUES (@date, @code, @market, @name, @surge_ratio, @close, @change_rate, @volume, @prev_volume, @per)
+  `)
+  const insertMany = db.transaction((rows) => { for (const r of rows) stmt.run(r) })
+  insertMany(rows)
+}
+
+const getVolumeSurgeData = (start, end) => {
+  return db.prepare(`
+    SELECT date, code, market, name, surge_ratio, close, change_rate, volume, prev_volume, per
+    FROM volume_surge
+    WHERE date = (SELECT MAX(date) FROM volume_surge WHERE date >= ? AND date <= ?)
+    ORDER BY surge_ratio DESC
+  `).all(start || '19000101', end || '99991231')
+}
 
 const upsertCollectedDate = (date, stagesOk) => {
   const stmt = db.prepare(`
@@ -284,6 +316,7 @@ module.exports = {
   upsertIndustry,
   upsertShortBalance,
   upsertShortTrade,
+  upsertVolumeSurge,
   upsertCollectedDate,
   getEtfData,
   getForeignData,
@@ -291,6 +324,7 @@ module.exports = {
   getIndustryData,
   getShortBalanceData,
   getShortTradeData,
+  getVolumeSurgeData,
   getCollectedDates,
   getNearestPriorDate,
   getInvestorTypes,

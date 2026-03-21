@@ -40,7 +40,8 @@ router.get('/:type', (req, res) => {
       }
       case 'industry':       data = db.getIndustryData(start, end);     break
       case 'short_balance':  data = db.getShortBalanceData(start, end); break
-      case 'short_trade':    data = db.getShortTradeData(start, end);   break
+      case 'short_trade':    data = db.getShortTradeData(start, end);    break
+      case 'volume_surge':   data = db.getVolumeSurgeData(start, end);   break
       default: return res.status(400).json({ error: 'unknown type' })
     }
 

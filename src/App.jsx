@@ -4,10 +4,12 @@ import CollectButton from './components/CollectButton'
 import EtfTab from './components/tabs/EtfTab'
 import InvestorTab from './components/tabs/InvestorTab'
 import SupplyTab from './components/tabs/SupplyTab'
+import VolumeSurgeTab from './components/tabs/VolumeSurgeTab'
 const TABS = [
   { id: 'etf', label: 'ETF 순자산변화' },
   { id: 'investor', label: '투자자별 순매수' },
   { id: 'supply', label: '공매도' },
+  { id: 'volume_surge', label: '거래량 급등' },
 ]
 
 function getDefaultDateRange() {
@@ -112,6 +114,7 @@ export default function App() {
         {activeTab === 'etf' && <EtfTab {...tabProps} />}
         {activeTab === 'investor' && <InvestorTab {...tabProps} />}
         {activeTab === 'supply' && <SupplyTab {...tabProps} />}
+        {activeTab === 'volume_surge' && <VolumeSurgeTab {...tabProps} />}
       </main>
 
       {/* Toast */}
