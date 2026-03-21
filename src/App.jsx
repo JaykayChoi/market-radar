@@ -5,17 +5,29 @@ import EtfTab from './components/tabs/EtfTab'
 import InvestorTab from './components/tabs/InvestorTab'
 import SupplyTab from './components/tabs/SupplyTab'
 import VolumeSurgeTab from './components/tabs/VolumeSurgeTab'
-const TABS = [
-  { id: 'etf', label: 'ETF 순자산변화' },
-  { id: 'investor', label: '투자자별 순매수' },
-  { id: 'supply', label: '공매도' },
-  { id: 'volume_surge', label: '거래량 급등' },
+import UsMacroTab from './components/tabs/UsMacroTab'
+import UsEtfTab from './components/tabs/us/UsEtfTab'
+
+const KR_TABS = [
+  { id: 'etf',          label: 'ETF 순자산변화'  },
+  { id: 'investor',     label: '투자자별 순매수'  },
+  { id: 'supply',       label: '공매도'           },
+  { id: 'volume_surge', label: '거래량 급등'       },
+]
+
+const US_TABS = [
+  { id: 'us_etf',   label: 'ETF'    },
+  { id: 'us_macro', label: '매크로' },
+]
+
+const MARKETS = [
+  { id: 'kr', label: '🇰🇷 한국' },
+  { id: 'us', label: '🇺🇸 미국' },
 ]
 
 function getDefaultDateRange() {
   const today = new Date()
   const end = toYYYYMMDD(today)
-  // Default: 1주전 (7 calendar days)
   const start = new Date(today)
   start.setDate(start.getDate() - 7)
   return { start: toYYYYMMDD(start), end }
@@ -29,7 +41,9 @@ function toYYYYMMDD(date) {
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('etf')
+  const [market, setMarket] = useState('kr')
+  const [activeKrTab, setActiveKrTab] = useState('etf')
+  const [activeUsTab, setActiveUsTab] = useState('us_etf')
   const [dateRange, setDateRange] = useState(getDefaultDateRange)
   const [collecting, setCollecting] = useState(false)
   const [progress, setProgress] = useState({ stage: 0, total: 0, label: 'idle', status: 'idle' })
@@ -66,6 +80,10 @@ export default function App() {
     }
   }, [])
 
+  const tabs = market === 'kr' ? KR_TABS : US_TABS
+  const activeTab = market === 'kr' ? activeKrTab : activeUsTab
+  const setActiveTab = market === 'kr' ? setActiveKrTab : setActiveUsTab
+
   const tabProps = { dateRange, key: refreshKey }
 
   return (
@@ -76,23 +94,48 @@ export default function App() {
           <div className="flex flex-wrap items-center gap-4 justify-between">
             <h1 className="text-xl font-bold text-gray-900">Market Radar</h1>
             <div className="flex flex-wrap items-center gap-3">
-              <DateRangePicker value={dateRange} onChange={setDateRange} />
-              <CollectButton
-                collecting={collecting}
-                onCollect={handleCollect}
-                dateRange={dateRange}
-                progress={progress}
-              />
+              {market === 'kr' && (
+                <>
+                  <DateRangePicker value={dateRange} onChange={setDateRange} />
+                  <CollectButton
+                    collecting={collecting}
+                    onCollect={handleCollect}
+                    dateRange={dateRange}
+                    progress={progress}
+                  />
+                </>
+              )}
             </div>
           </div>
         </div>
       </header>
 
-      {/* Tab navigation */}
+      {/* 시장 선택 (대분류) */}
+      <div className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex items-center gap-1 pt-2">
+            {MARKETS.map(m => (
+              <button
+                key={m.id}
+                onClick={() => setMarket(m.id)}
+                className={`px-5 py-2 text-sm font-semibold rounded-t-lg border-b-2 transition-colors ${
+                  market === m.id
+                    ? 'border-blue-600 text-blue-600 bg-blue-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 탭 네비게이션 (소분류) */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4">
           <nav className="flex gap-1">
-            {TABS.map(tab => (
+            {tabs.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
@@ -111,10 +154,14 @@ export default function App() {
 
       {/* Main content */}
       <main className="max-w-7xl mx-auto px-4 py-6">
-        {activeTab === 'etf' && <EtfTab {...tabProps} />}
-        {activeTab === 'investor' && <InvestorTab {...tabProps} />}
-        {activeTab === 'supply' && <SupplyTab {...tabProps} />}
-        {activeTab === 'volume_surge' && <VolumeSurgeTab />}
+        {/* 한국 탭 */}
+        {market === 'kr' && activeTab === 'etf'          && <EtfTab {...tabProps} />}
+        {market === 'kr' && activeTab === 'investor'     && <InvestorTab {...tabProps} />}
+        {market === 'kr' && activeTab === 'supply'       && <SupplyTab {...tabProps} />}
+        {market === 'kr' && activeTab === 'volume_surge' && <VolumeSurgeTab />}
+        {/* 미국 탭 */}
+        {market === 'us' && activeTab === 'us_etf'   && <UsEtfTab />}
+        {market === 'us' && activeTab === 'us_macro' && <UsMacroTab />}
       </main>
 
       {/* Toast */}

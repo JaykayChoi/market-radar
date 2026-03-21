@@ -6,11 +6,22 @@ type: reference
 
 ## 빠른 비교 매트릭스
 
+## 현재 등록된 소스 (구현 완료)
+
+| 소스 | 역할 | 구현 위치 |
+|------|------|---------|
+| **KRX 한국거래소** ⭐ | ETF/수급/주가/공매도 수집 | `server/collector/`, `server/routes/collect.js` |
+| **네이버금융** ⭐ | 거래량 급등 라이브 조회 | `server/collector/naver_quant.js`, `server/routes/naver.js` |
+
+---
+
+## 빠른 비교 매트릭스
+
 | # | 소스명 | URL | 접근방식 | API키 | 로그인 | 비용 | 갱신주기 |
 |---|--------|-----|----------|-------|--------|------|----------|
-| 1 | **KRX 한국거래소** | data.krx.co.kr | 비공개 POST API | X | 필요 | 무료 | 실시간 |
+| 1 | **KRX 한국거래소** ⭐ | data.krx.co.kr | 비공개 POST API | X | 필요 | 무료 | 실시간 |
 | 2 | **한국은행 ECOS** | ecos.bok.or.kr | 공개 REST API | 필요 | X | 무료 | 일/월/분기 |
-| 3 | **네이버금융** | finance.naver.com | 비공개 API | X | X | 무료 | 준실시간 |
+| 3 | **네이버금융** ⭐ | finance.naver.com | 비공개 API | X | X | 무료 | 준실시간 |
 | 4 | **금융투자협회 FreeSIS** | freesis.kofia.or.kr | 비공개 API | X | 일부 | 무료 | 일/월 |
 | 5 | **금융감독원 DART** | dart.fss.or.kr | 공개 REST API | 필요 | X | 무료 | 공시 즉시 |
 | 6 | **통계청 KOSIS** | kosis.kr | 공개 REST API | 필요 | X | 무료 | 월/분기/연 |
@@ -20,9 +31,6 @@ type: reference
 | 10 | **PyKRX** | github.com/sharebook-kr/pykrx | KRX 래퍼 | X | X | 무료 | 장마감 후 |
 | 11 | **FnGuide** | fnguide.com | 유료 구독 API | 필요 | 필요 | **유료** | 실시간 |
 | 12 | **WiseFn** | wisefn.com | 유료 구독 | 필요 | 필요 | **유료** | 실시간 |
-| 13 | **FRED** | fred.stlouisfed.org | 공개 REST API | 필요 | X | 무료 | 일/월 |
-| 14 | **Investing.com** | kr.investing.com | 비공개 API | X | X | 무료 | 실시간 |
-| 15 | **Yahoo Finance (yfinance)** | — | 비공개 API 래퍼 | X | X | 무료 | 일별 |
 
 ---
 
@@ -122,24 +130,6 @@ type: reference
 | 수급 | 투자자별 매매동향 실시간, 프로그램 매매 |
 | 해외 | 미국/일본/중국/홍콩/베트남 주식 |
 | **실시간** | **WebSocket 스트리밍 (동시 41개 스트림)** |
-
-### 9. FRED (St. Louis Fed)
-접근: 공개 REST API, API 키 무료. `pip install fredapi`
-
-| 시리즈 ID | 데이터 항목 |
-|-----------|------------|
-| DFF | 미국 기준금리 |
-| GS2/GS10/GS30 | 미국 국채 2y/10y/30y |
-| T10Y2Y | 장단기 스프레드 (경기침체 선행지표) |
-| DTWEXBGS | 달러 인덱스 (Broad) |
-| VIXCLS | VIX 지수 |
-| DEXKOUS | 원/달러 환율 |
-| CPIAUCSL/UNRATE | 미국 CPI, 실업률 |
-
-### 10. Investing.com
-접근: 비공개 API, `investiny` 라이브러리
-
-특이사항: **경제 캘린더 (FOMC/CPI/NFP 발표일, 예상치/실제치)** 가 이벤트 드리븐 전략에 유용.
 
 ---
 

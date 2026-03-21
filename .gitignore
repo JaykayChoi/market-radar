@@ -22,6 +22,10 @@ scripts/
 *.xlsx
 ~$*.xlsx
 
+# Playwright 테스트 결과물
+test-results/
+playwright-report/
+
 # Node.js
 node_modules/
 dist/

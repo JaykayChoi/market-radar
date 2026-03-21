@@ -1,6 +1,6 @@
 ---
-name: market_radar_feature_candidates
-description: 구현 검토 후보 기능 목록 — 소스별/카테고리별 정리, 하나씩 구현
+name: market_radar_feature_candidates_kr
+description: 국내 투자 기능 후보 목록 — 소스별/카테고리별 정리, 하나씩 구현
 type: project
 ---
 
