@@ -77,6 +77,7 @@ export default function Us13fTab() {
         setStats({
           prevFilingDate: data.prevFilingDate,
           total: data.total,
+          totalCount: data.totalCount,
           totalChangePct: data.totalChangePct,
           newCount: data.newCount || 0,
           increasedCount: data.increasedCount || 0,
@@ -173,7 +174,7 @@ export default function Us13fTab() {
                     : null,
                   subColor: stats?.totalChangePct > 0 ? 'text-green-600' : stats?.totalChangePct < 0 ? 'text-red-600' : 'text-gray-400',
                   color: 'text-gray-900' },
-                { label: '보유 종목',  value: holdings ? `${holdings.length}개` : '—', color: 'text-gray-900' },
+                { label: '보유 종목',  value: stats?.totalCount ? `${stats.totalCount}개` : (holdings ? `${holdings.length}개` : '—'), color: 'text-gray-900' },
                 { label: '신규 편입',  value: stats ? `${stats.newCount}개` : '—',     color: 'text-purple-600' },
                 { label: '비중 확대',  value: stats ? `${stats.increasedCount}개` : '—', color: 'text-green-600' },
                 { label: '비중 축소',  value: stats ? `${stats.decreasedCount}개` : '—', color: 'text-red-600' },

@@ -234,10 +234,11 @@ router.get('/:cik/latest', async (req, res) => {
     const latestXml = await fetchInfoTableXml(cik, filings[0].accNo)
     let holdings = parseInfoTable(latestXml, 100)
 
-    // 전체 XML 기준 총액 계산
+    // 전체 XML 기준 총액 및 종목 수 계산
     const latestMap = parseInfoTableRaw(latestXml)
     let total = 0
     for (const [, v] of latestMap) total += v.value
+    const totalCount = latestMap.size
 
     // 직전 분기 비교
     let prevFilingDate = null
@@ -284,6 +285,7 @@ router.get('/:cik/latest', async (req, res) => {
       prevFilingDate,
       edgarUrl,
       total,
+      totalCount,
       prevTotal,
       totalChangePct,
       newCount,
