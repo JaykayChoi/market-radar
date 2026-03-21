@@ -189,6 +189,7 @@ export default function UsCalendarTab() {
   const [loading, setLoading]   = useState(false)
   const [filter, setFilter]     = useState('all') // all, ipo, earnings
   const [selected, setSelected] = useState(null)  // 선택된 날짜 YYYY-MM-DD
+  const [error, setError]       = useState(null)
 
   const year  = baseDate.getFullYear()
   const month = baseDate.getMonth()
@@ -199,16 +200,25 @@ export default function UsCalendarTab() {
     const to   = toYmd(new Date(year, month + 1, 0))
     setLoading(true)
     setSelected(null)
+    setError(null)
 
     Promise.all([
-      fetch(`/api/finnhub/calendar/ipo?from=${from}&to=${to}`).then(r => r.json()),
-      fetch(`/api/finnhub/calendar/earnings?from=${from}&to=${to}`).then(r => r.json()),
+      fetch(`/api/finnhub/calendar/ipo?from=${from}&to=${to}`).then(r => {
+        if (!r.ok) throw new Error(`IPO API 오류: ${r.status}`)
+        return r.json()
+      }),
+      fetch(`/api/finnhub/calendar/earnings?from=${from}&to=${to}`).then(r => {
+        if (!r.ok) throw new Error(`Earnings API 오류: ${r.status}`)
+        return r.json()
+      }),
     ])
       .then(([ipoData, earnData]) => {
+        if (ipoData.error) throw new Error(ipoData.error)
+        if (earnData.error) throw new Error(earnData.error)
         setIpos(ipoData.ipoCalendar || [])
         setEarnings(earnData.earningsCalendar || [])
       })
-      .catch(() => {})
+      .catch(e => setError(e.message))
       .finally(() => setLoading(false))
   }, [baseDate, year, month])
 
@@ -302,10 +312,26 @@ export default function UsCalendarTab() {
         <span className="flex items-center gap-1">
           <span className="w-2.5 h-2.5 rounded bg-blue-50 inline-block border border-blue-200" /> TOP100
         </span>
-        {loading && <span className="text-gray-400">로딩 중...</span>}
       </div>
 
-      <div className="flex gap-4">
+      {/* 로딩 */}
+      {loading && (
+        <div className="flex items-center justify-center py-20 bg-white rounded-lg border border-gray-200">
+          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-3" />
+          <span className="text-sm text-gray-500">Finnhub에서 IPO/실적 데이터 로딩 중...</span>
+        </div>
+      )}
+
+      {/* 에러 */}
+      {!loading && error && (
+        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-lg border border-gray-200">
+          <p className="text-3xl mb-2">⚠️</p>
+          <p className="font-medium text-gray-600">데이터 로드 실패</p>
+          <p className="text-xs text-red-500 mt-1 max-w-sm text-center">{error}</p>
+        </div>
+      )}
+
+      {!loading && !error && <div className="flex gap-4">
         {/* 달력 */}
         <div className="flex-1">
           {/* 요일 헤더 */}
@@ -456,7 +482,7 @@ export default function UsCalendarTab() {
             </div>
           )}
         </div>
-      </div>
+      </div>}
 
       <p className="text-xs text-gray-400 mt-3">
         ※ Finnhub IPO Calendar + Earnings Calendar 기준. 데이터는 실시간 반영되지 않을 수 있습니다.

@@ -2,8 +2,8 @@
   "name": "market-radar",
   "version": "1.0.0",
   "scripts": {
-    "dev": "concurrently \"node server/index.js\" \"vite\"",
-    "start": "vite build && node server/index.js",
+    "dev": "concurrently \"node --env-file=.env server/index.js\" \"vite\"",
+    "start": "vite build && node --env-file=.env server/index.js",
     "build": "vite build",
     "start-chrome": "start-chrome.bat",
     "test:unit:backend": "node --env-file=.env --test test/unit/fred-route.test.js test/unit/bls-route.test.js test/unit/finnhub-route.test.js test/unit/fmp-route.test.js test/unit/edgar-route.test.js test/unit/yahoo-route.test.js test/unit/cboe-route.test.js test/unit/treasury-route.test.js test/unit/bea-route.test.js test/unit/polygon-route.test.js test/unit/etf-route.test.js",
