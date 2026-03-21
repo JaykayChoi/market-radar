@@ -81,20 +81,24 @@ async function fetchText(url) {
   return res.text()
 }
 
-// submissions JSON → 최신 13F-HR 정보 반환
-async function getLatestFiling(cik) {
+// submissions JSON → 최근 13F-HR 2건 반환 (latest + previous)
+async function getFilings(cik, count = 2) {
   const padded = cik.padStart(10, '0')
   const sub = await fetchJson(`${SEC_BASE}/submissions/CIK${padded}.json`)
 
   const { accessionNumber, form, filingDate } = sub.filings.recent
-  const idx = form.findIndex(f => f === '13F-HR' || f === '13F-HR/A')
-  if (idx === -1) throw new Error('13F-HR 신고 없음')
-
-  return {
-    accNo:      accessionNumber[idx].replace(/-/g, ''),
-    accNoDash:  accessionNumber[idx],
-    filingDate: filingDate[idx],
+  const results = []
+  for (let i = 0; i < form.length && results.length < count; i++) {
+    if (form[i] === '13F-HR' || form[i] === '13F-HR/A') {
+      results.push({
+        accNo:      accessionNumber[i].replace(/-/g, ''),
+        accNoDash:  accessionNumber[i],
+        filingDate: filingDate[i],
+      })
+    }
   }
+  if (results.length === 0) throw new Error('13F-HR 신고 없음')
+  return results
 }
 
 // 인포테이블 XML 다운로드 — 여러 후보 파일명 시도
@@ -162,6 +166,53 @@ function parseInfoTable(xml, limit = 50) {
   }))
 }
 
+// XML → CUSIP keyed map (비교용, 전체 파싱)
+function parseInfoTableRaw(xml) {
+  const map = new Map()  // cusip → { value, shares }
+  const regex = /<infoTable>([\s\S]*?)<\/infoTable>/g
+  let m
+  while ((m = regex.exec(xml)) !== null) {
+    const block = m[1]
+    const get   = tag => (block.match(new RegExp(`<${tag}[^>]*>([^<]*)<\/${tag}>`)) || [])[1]?.trim() || null
+    const cusip = get('cusip') || '—'
+    const value = parseInt(get('value') || '0', 10)
+    const shares = parseInt(get('sshPrnamt') || '0', 10)
+    // 동일 CUSIP이 여러 매니저로 나뉘면 합산
+    const prev = map.get(cusip)
+    if (prev) {
+      prev.value += value
+      prev.shares += shares
+    } else {
+      map.set(cusip, { value, shares })
+    }
+  }
+  return map
+}
+
+// 최신 vs 직전 분기 비교 → holdings에 change/changePct 추가
+function addChangeInfo(holdings, prevMap) {
+  if (!prevMap || prevMap.size === 0) return holdings
+
+  return holdings.map(h => {
+    const prev = prevMap.get(h.cusip)
+    if (!prev) {
+      return { ...h, change: 'new', changePct: null }
+    }
+    if (prev.shares === 0) {
+      return { ...h, change: 'new', changePct: null }
+    }
+    const diff = ((h.shares - prev.shares) / prev.shares) * 100
+    if (Math.abs(diff) < 0.5) {
+      return { ...h, change: 'held', changePct: 0 }
+    }
+    return {
+      ...h,
+      change: diff > 0 ? 'increased' : 'decreased',
+      changePct: parseFloat(diff.toFixed(1)),
+    }
+  })
+}
+
 // ── 라우트 ──────────────────────────────────────────────────────────
 
 // GET /api/edgar13f/institutions
@@ -169,7 +220,7 @@ router.get('/institutions', (req, res) => {
   res.json(INSTITUTIONS)
 })
 
-// GET /api/edgar13f/:cik/latest — 최신 13F 홀딩스 (상위 50)
+// GET /api/edgar13f/:cik/latest — 최신 13F 홀딩스 + 전분기 비교 (상위 50)
 router.get('/:cik/latest', async (req, res) => {
   try {
     const cik    = req.params.cik.replace(/^0+/, '')  // leading zeros 제거
@@ -179,12 +230,41 @@ router.get('/:cik/latest', async (req, res) => {
       return res.json(cached.data)
     }
 
-    const { accNo, filingDate } = await getLatestFiling(cik)
-    const xml      = await fetchInfoTableXml(cik, accNo)
-    const holdings = parseInfoTable(xml, 50)
-    const total    = holdings.reduce((s, h) => s + h.value, 0)
+    const filings = await getFilings(cik, 2)
+    const latestXml = await fetchInfoTableXml(cik, filings[0].accNo)
+    let holdings = parseInfoTable(latestXml, 50)
 
-    const data = { cik, filingDate, total, holdings }
+    // 직전 분기 비교
+    let prevFilingDate = null
+    if (filings.length >= 2) {
+      try {
+        const prevXml = await fetchInfoTableXml(cik, filings[1].accNo)
+        const prevMap = parseInfoTableRaw(prevXml)
+        holdings = addChangeInfo(holdings, prevMap)
+        prevFilingDate = filings[1].filingDate
+      } catch (_) { /* 직전 분기 파싱 실패 시 비교 없이 진행 */ }
+    }
+
+    // 비교 데이터 없는 항목에 기본값 설정
+    holdings = holdings.map(h => ({
+      change: null, changePct: null, ...h,
+    }))
+
+    const total = holdings.reduce((s, h) => s + h.value, 0)
+    const newCount = holdings.filter(h => h.change === 'new').length
+    const increasedCount = holdings.filter(h => h.change === 'increased').length
+    const decreasedCount = holdings.filter(h => h.change === 'decreased').length
+
+    const data = {
+      cik,
+      filingDate: filings[0].filingDate,
+      prevFilingDate,
+      total,
+      newCount,
+      increasedCount,
+      decreasedCount,
+      holdings,
+    }
     cache.set(cacheKey, { data, ts: Date.now() })
     res.json(data)
   } catch (err) {
@@ -195,3 +275,5 @@ router.get('/:cik/latest', async (req, res) => {
 module.exports = router
 module.exports.INSTITUTIONS = INSTITUTIONS
 module.exports.parseInfoTable = parseInfoTable
+module.exports.parseInfoTableRaw = parseInfoTableRaw
+module.exports.addChangeInfo = addChangeInfo

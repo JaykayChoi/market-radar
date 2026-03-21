@@ -20,6 +20,13 @@ function fmtShares(v) {
   return v.toLocaleString()
 }
 
+const CHANGE_CONFIG = {
+  new:       { label: 'NEW',    bg: 'bg-purple-100', text: 'text-purple-700' },
+  increased: { label: '▲ 증가', bg: 'bg-green-100',  text: 'text-green-700'  },
+  decreased: { label: '▼ 감소', bg: 'bg-red-100',    text: 'text-red-700'    },
+  held:      { label: '― 유지', bg: 'bg-gray-100',   text: 'text-gray-500'   },
+}
+
 // ── 컴포넌트 ──────────────────────────────────────────────────────
 
 export default function Us13fTab() {
@@ -29,6 +36,7 @@ export default function Us13fTab() {
   const [filingDate, setFilingDate]     = useState(null)
   const [loading, setLoading]           = useState(false)
   const [error, setError]               = useState(null)
+  const [stats, setStats]               = useState(null)
 
   // 기관 목록 로드
   useEffect(() => {
@@ -51,6 +59,7 @@ export default function Us13fTab() {
     setError(null)
     setHoldings(null)
     setFilingDate(null)
+    setStats(null)
 
     fetch(`/api/edgar13f/${inst.cik}/latest`)
       .then(r => r.json())
@@ -58,6 +67,12 @@ export default function Us13fTab() {
         if (data.error) throw new Error(data.error)
         setHoldings(data.holdings)
         setFilingDate(data.filingDate)
+        setStats({
+          prevFilingDate: data.prevFilingDate,
+          newCount: data.newCount || 0,
+          increasedCount: data.increasedCount || 0,
+          decreasedCount: data.decreasedCount || 0,
+        })
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
@@ -130,12 +145,14 @@ export default function Us13fTab() {
             </div>
 
             {/* 요약 카드 */}
-            <div className="grid grid-cols-4 gap-3 mb-4">
+            <div className="grid grid-cols-6 gap-3 mb-4">
               {[
-                { label: 'AUM',      value: fmtAum(institution.aum),                 color: 'text-gray-900' },
+                { label: 'AUM',       value: fmtAum(institution.aum),                 color: 'text-gray-900' },
                 { label: '포트폴리오', value: holdings ? fmtValue(totalValue) : '—',  color: 'text-gray-900' },
-                { label: '보유 종목', value: holdings ? `${holdings.length}개` : '—', color: 'text-gray-900' },
-                { label: '상위 1위 비중', value: holdings?.[0] ? `${holdings[0].pct.toFixed(1)}%` : '—', color: 'text-blue-600' },
+                { label: '보유 종목',  value: holdings ? `${holdings.length}개` : '—', color: 'text-gray-900' },
+                { label: '신규 편입',  value: stats ? `${stats.newCount}개` : '—',     color: 'text-purple-600' },
+                { label: '비중 확대',  value: stats ? `${stats.increasedCount}개` : '—', color: 'text-green-600' },
+                { label: '비중 축소',  value: stats ? `${stats.decreasedCount}개` : '—', color: 'text-red-600' },
               ].map(({ label, value, color }) => (
                 <div key={label} className="bg-white rounded-lg border border-gray-200 p-3 text-center shadow-sm">
                   <p className="text-xs text-gray-400 mb-1">{label}</p>
@@ -175,10 +192,13 @@ export default function Us13fTab() {
                   <th className="px-3 py-2 text-right  text-xs font-semibold text-gray-500 uppercase">주식수</th>
                   <th className="px-3 py-2 text-right  text-xs font-semibold text-gray-500 uppercase">평가액</th>
                   <th className="px-3 py-2 text-right  text-xs font-semibold text-gray-500 uppercase">비중</th>
+                  <th className="px-3 py-2 text-center text-xs font-semibold text-gray-500 uppercase">전분기</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white">
-                {holdings.map(h => (
+                {holdings.map(h => {
+                  const cfg = h.change ? CHANGE_CONFIG[h.change] : null
+                  return (
                   <tr key={`${h.rank}-${h.cusip}`} data-testid={`holding-row-${h.rank}`} className="hover:bg-gray-50">
                     <td className="px-3 py-2 text-center text-gray-400 text-xs">{h.rank}</td>
                     <td className="px-3 py-2 font-medium text-gray-900">
@@ -200,15 +220,28 @@ export default function Us13fTab() {
                         <span className="text-gray-700 font-medium w-9 text-right">{h.pct.toFixed(1)}%</span>
                       </div>
                     </td>
+                    <td className="px-3 py-2 text-center">
+                      {cfg ? (
+                        <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.bg} ${cfg.text}`}>
+                          {cfg.label}
+                          {h.changePct !== null && h.changePct !== 0 && (
+                            <span>({h.changePct > 0 ? '+' : ''}{h.changePct.toFixed(1)}%)</span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300 text-xs">—</span>
+                      )}
+                    </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
         )}
 
         <p className="text-xs text-gray-400 mt-2">
-          ※ SEC EDGAR 13F-HR 공시 기준. 상위 50개 포지션 표시. 24시간 캐시 적용.
+          ※ SEC EDGAR 13F-HR 공시 기준. 상위 50개 포지션 표시. 전분기 대비 주식수 변화 비교. 24시간 캐시 적용.
         </p>
       </div>
     </div>
