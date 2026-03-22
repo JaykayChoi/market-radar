@@ -18,6 +18,7 @@ type: project
 | 미국 ETF 가격/AUM/성과 (27개, 1W%/1M%/3M%) | Yahoo Finance + FMP | 탭 구현됨 (`UsEtfTab`) |
 | 미국 13F 기관 포지션 (50개 기관, 상위 100종목) | SEC EDGAR 13F-HR | 탭 구현됨 (`Us13fTab`) — 전분기 비교, 청산 종목, SEC 링크 |
 | IPO/실적발표 캘린더 | Finnhub | 탭 구현됨 (`UsCalendarTab`) — 달력 UI, TOP10/50/100 하이라이트, 기업명 자동 조회 |
+| 옵션 체인 + P/C Ratio | Yahoo Finance | 탭 구현됨 (`UsOptionsTab`) — 옵션 체인, 만기일별 P/C Ratio, 자동 분석 |
 
 ---
 
