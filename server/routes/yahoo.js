@@ -255,6 +255,46 @@ router.get('/stocks', async (req, res) => {
     // 시총 내림차순 정렬
     stocks.sort((a, b) => (b.marketCap || 0) - (a.marketCap || 0))
 
+    // 애널리스트 목표가 병렬 조회 (v10 quoteSummary, 20개씩 배치)
+    const allSymbols = stocks.map(s => s.symbol)
+    const targetMap = new Map()
+    for (let i = 0; i < allSymbols.length; i += 20) {
+      const batch = allSymbols.slice(i, i + 20)
+      await Promise.allSettled(batch.map(async (sym) => {
+        try {
+          const r = await fetch(
+            `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${sym}?modules=financialData&crumb=${auth.crumb}`,
+            { headers: { ...HEADERS, Cookie: auth.cookie } }
+          )
+          if (!r.ok) return
+          const d = await r.json()
+          const fd = d.quoteSummary?.result?.[0]?.financialData
+          if (fd) {
+            targetMap.set(sym, {
+              targetMean: fd.targetMeanPrice?.raw ?? null,
+              targetHigh: fd.targetHighPrice?.raw ?? null,
+              targetLow:  fd.targetLowPrice?.raw ?? null,
+              recKey:     fd.recommendationKey ?? null,
+              analysts:   fd.numberOfAnalystOpinions?.raw ?? null,
+            })
+          }
+        } catch {}
+      }))
+    }
+
+    // 목표가 합치기
+    for (const s of stocks) {
+      const t = targetMap.get(s.symbol)
+      if (t) {
+        s.targetMean = t.targetMean
+        s.targetHigh = t.targetHigh
+        s.targetLow  = t.targetLow
+        s.recKey     = t.recKey
+        s.analysts   = t.analysts
+        s.targetDiffPct = (t.targetMean && s.price) ? parseFloat(((t.targetMean - s.price) / s.price * 100).toFixed(1)) : null
+      }
+    }
+
     res.json({ count: stocks.length, stocks })
   } catch (err) {
     res.status(500).json({ error: err.message })

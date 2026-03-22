@@ -169,6 +169,8 @@ export default function UsStockTab({ onViewOptions }) {
                   <SortTh k="eps" label="EPS" />
                   <SortTh k="divYield" label="배당%" />
                   <SortTh k="volume" label="거래량" />
+                  <SortTh k="targetMean" label="목표가" />
+                  <SortTh k="targetDiffPct" label="괴리율" />
                   <th className="px-2 py-2 text-center text-[10px] font-semibold text-gray-500 w-24">52주</th>
                   <th className="px-2 py-2 text-center text-[10px] font-semibold text-gray-500 w-12"></th>
                 </tr>
@@ -193,6 +195,10 @@ export default function UsStockTab({ onViewOptions }) {
                       <td className="px-2 py-1.5 text-right text-gray-700">{s.eps ? `$${fmtNum(s.eps)}` : '—'}</td>
                       <td className="px-2 py-1.5 text-right text-gray-700">{s.divYield ? `${fmtNum(s.divYield)}%` : '—'}</td>
                       <td className="px-2 py-1.5 text-right text-gray-600">{fmtVol(s.volume)}</td>
+                      <td className="px-2 py-1.5 text-right text-gray-700">{s.targetMean ? `$${fmtNum(s.targetMean, 0)}` : '—'}</td>
+                      <td className={`px-2 py-1.5 text-right font-medium ${(s.targetDiffPct || 0) > 0 ? 'text-green-600' : (s.targetDiffPct || 0) < 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                        {s.targetDiffPct != null ? `${s.targetDiffPct > 0 ? '+' : ''}${fmtNum(s.targetDiffPct, 1)}%` : '—'}
+                      </td>
                       <td className="px-2 py-1.5 w-24">
                         <div className="flex items-center gap-1">
                           <div className="flex-1 bg-gray-100 rounded-full h-1.5">
