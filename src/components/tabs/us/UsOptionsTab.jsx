@@ -156,8 +156,8 @@ const POPULAR_SYMBOLS = ['SPY', 'QQQ', 'AAPL', 'MSFT', 'NVDA', 'TSLA', 'AMZN', '
 
 // ── 컴포넌트 ──────────────────────────────────────────────────────
 
-export default function UsOptionsTab() {
-  const [symbol, setSymbol]           = useState('SPY')
+export default function UsOptionsTab({ initialSymbol, onSymbolUsed }) {
+  const [symbol, setSymbol]           = useState(initialSymbol || 'SPY')
   const [inputSymbol, setInputSymbol] = useState('')
   const [chain, setChain]             = useState(null)
   const [selectedExp, setSelectedExp] = useState(null)
@@ -167,6 +167,16 @@ export default function UsOptionsTab() {
   const [pcrData, setPcrData]         = useState(null)
   const [pcrLoading, setPcrLoading]   = useState(false)
   const [pcrError, setPcrError]       = useState(null)
+
+  // 종목 정보 탭에서 넘어온 경우
+  useEffect(() => {
+    if (initialSymbol && initialSymbol !== symbol) {
+      setSymbol(initialSymbol)
+      setSelectedExp(null)
+      setView('chain')
+    }
+    if (onSymbolUsed) onSymbolUsed()
+  }, [initialSymbol])
 
   // P/C Ratio fetch
   useEffect(() => {

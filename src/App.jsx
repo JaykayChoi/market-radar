@@ -52,6 +52,7 @@ export default function App() {
   const [market, setMarket] = useState('kr')
   const [activeKrTab, setActiveKrTab] = useState('etf')
   const [activeUsTab, setActiveUsTab] = useState('us_etf')
+  const [optionsSymbol, setOptionsSymbol] = useState(null)
   const [dateRange, setDateRange] = useState(getDefaultDateRange)
   const [collecting, setCollecting] = useState(false)
   const [progress, setProgress] = useState({ stage: 0, total: 0, label: 'idle', status: 'idle' })
@@ -172,8 +173,8 @@ export default function App() {
         {market === 'us' && activeTab === 'us_macro' && <UsMacroTab />}
         {market === 'us' && activeTab === 'us_13f'      && <Us13fTab />}
         {market === 'us' && activeTab === 'us_calendar' && <UsCalendarTab />}
-        {market === 'us' && activeTab === 'us_options'  && <UsOptionsTab />}
-        {market === 'us' && activeTab === 'us_stock'    && <UsStockTab />}
+        {market === 'us' && activeTab === 'us_options'  && <UsOptionsTab initialSymbol={optionsSymbol} onSymbolUsed={() => setOptionsSymbol(null)} />}
+        {market === 'us' && activeTab === 'us_stock'    && <UsStockTab onViewOptions={(sym) => { setOptionsSymbol(sym); setActiveUsTab('us_options') }} />}
       </main>
 
       {/* Toast */}

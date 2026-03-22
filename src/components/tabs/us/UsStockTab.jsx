@@ -20,7 +20,7 @@ function fmtVol(v) {
 
 // ── 컴포넌트 ──────────────────────────────────────────────────────
 
-export default function UsStockTab() {
+export default function UsStockTab({ onViewOptions }) {
   const [stocks, setStocks]   = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState(null)
@@ -161,7 +161,6 @@ export default function UsStockTab() {
                 <tr>
                   <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 w-8">#</th>
                   <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 min-w-[140px]">종목</th>
-                  <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500">섹터</th>
                   <SortTh k="price" label="현재가" />
                   <SortTh k="changePct" label="등락률" />
                   <SortTh k="marketCap" label="시가총액" />
@@ -171,6 +170,7 @@ export default function UsStockTab() {
                   <SortTh k="divYield" label="배당%" />
                   <SortTh k="volume" label="거래량" />
                   <th className="px-2 py-2 text-center text-[10px] font-semibold text-gray-500 w-24">52주</th>
+                  <th className="px-2 py-2 text-center text-[10px] font-semibold text-gray-500 w-12"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white">
@@ -183,7 +183,6 @@ export default function UsStockTab() {
                         <span className="font-semibold text-blue-600">{s.symbol}</span>
                         <span className="ml-1.5 text-gray-500 truncate">{s.name}</span>
                       </td>
-                      <td className="px-2 py-1.5 text-gray-500 text-[10px]">{s.sector}</td>
                       <td className="px-2 py-1.5 text-right font-medium text-gray-900">${fmtNum(s.price)}</td>
                       <td className={`px-2 py-1.5 text-right font-bold ${(s.changePct || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                         {(s.changePct || 0) >= 0 ? '+' : ''}{fmtNum(s.changePct)}%
@@ -201,6 +200,15 @@ export default function UsStockTab() {
                           </div>
                           <span className="text-[9px] text-gray-400 w-7 text-right">{w52pct.toFixed(0)}%</span>
                         </div>
+                      </td>
+                      <td className="px-2 py-1.5 text-center">
+                        <button
+                          onClick={() => onViewOptions?.(s.symbol)}
+                          className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors"
+                          title={`${s.symbol} 옵션 체인 보기`}
+                        >
+                          옵션
+                        </button>
                       </td>
                     </tr>
                   )
