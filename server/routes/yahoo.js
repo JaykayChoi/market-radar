@@ -92,4 +92,90 @@ router.get('/search', async (req, res) => {
   }
 })
 
+// ── Yahoo Finance 인증 (crumb + cookie) ─────────────────────────
+
+let yfAuth = { cookie: null, crumb: null, ts: 0 }
+const AUTH_TTL = 30 * 60 * 1000  // 30분
+
+async function getYfAuth() {
+  if (yfAuth.crumb && Date.now() - yfAuth.ts < AUTH_TTL) return yfAuth
+
+  const cookieRes = await fetch('https://fc.yahoo.com', { redirect: 'manual' })
+  const setCookies = cookieRes.headers.getSetCookie?.() || []
+  const cookie = setCookies.map(c => c.split(';')[0]).join('; ')
+
+  const crumbRes = await fetch('https://query2.finance.yahoo.com/v1/test/getcrumb', {
+    headers: { ...HEADERS, Cookie: cookie },
+  })
+  if (!crumbRes.ok) throw new Error('Yahoo crumb 획득 실패')
+  const crumb = await crumbRes.text()
+
+  yfAuth = { cookie, crumb, ts: Date.now() }
+  return yfAuth
+}
+
+// GET /api/yahoo/options?symbol=SPY — 옵션 체인
+// query: symbol (필수), date (만기일 unix timestamp, 생략 시 가장 가까운 만기)
+router.get('/options', async (req, res) => {
+  try {
+    const { symbol, date } = req.query
+    if (!symbol) return res.status(400).json({ error: 'symbol 파라미터 필요' })
+    const sym = symbol.toUpperCase()
+
+    const auth = await getYfAuth()
+    const qs = new URLSearchParams({ crumb: auth.crumb })
+    if (date) qs.set('date', date)
+
+    const data = await fetch(
+      `https://query2.finance.yahoo.com/v7/finance/options/${sym}?${qs}`,
+      { headers: { ...HEADERS, Cookie: auth.cookie } }
+    ).then(r => {
+      if (!r.ok) throw new Error(`Yahoo options 오류: ${r.status}`)
+      return r.json()
+    })
+
+    const result = data.optionChain?.result?.[0]
+    if (!result) return res.status(404).json({ error: `옵션 데이터 없음: ${sym}` })
+
+    const quote = result.quote || {}
+    const options = result.options?.[0] || {}
+
+    res.json({
+      symbol: sym,
+      underlying: {
+        price: quote.regularMarketPrice,
+        change: quote.regularMarketChange,
+        changePct: quote.regularMarketChangePercent,
+        name: quote.shortName || quote.longName || sym,
+      },
+      expirations: (result.expirationDates || []).map(ts => {
+        const d = new Date(ts * 1000)
+        return { timestamp: ts, date: d.toISOString().slice(0, 10) }
+      }),
+      calls: (options.calls || []).map(c => ({
+        strike:       c.strike,
+        lastPrice:    c.lastPrice,
+        bid:          c.bid,
+        ask:          c.ask,
+        volume:       c.volume || 0,
+        openInterest: c.openInterest || 0,
+        iv:           c.impliedVolatility,
+        itm:          c.inTheMoney,
+      })),
+      puts: (options.puts || []).map(p => ({
+        strike:       p.strike,
+        lastPrice:    p.lastPrice,
+        bid:          p.bid,
+        ask:          p.ask,
+        volume:       p.volume || 0,
+        openInterest: p.openInterest || 0,
+        iv:           p.impliedVolatility,
+        itm:          p.inTheMoney,
+      })),
+    })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 module.exports = router
