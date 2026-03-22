@@ -172,11 +172,12 @@ test.describe('미국 매크로 탭', () => {
     await expect(page.locator('[data-testid="metric-card-vix"]')).toContainText('VIX')
   })
 
-  test('10개 지표 카드가 모두 표시된다', async ({ page }) => {
+  test('30개 이상 지표 카드가 표시된다', async ({ page }) => {
     await goToUsMarket(page)
     await page.click('button:has-text("매크로")')
     await page.waitForSelector('[data-testid^="metric-card-"]', { timeout: 20000 })
     const cards = page.locator('[data-testid^="metric-card-"]')
-    await expect(cards).toHaveCount(10)
+    const count = await cards.count()
+    expect(count).toBeGreaterThanOrEqual(30)
   })
 })

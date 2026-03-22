@@ -35,8 +35,24 @@ const SERIES = {
   vix:             'VIXCLS',
   // GDP
   gdp:             'GDPC1',         // 실질 GDP
-  // 모기지
+  // 모기지/부동산
   mortgage30:      'MORTGAGE30US',
+  houst:           'HOUST',          // 주택착공건수
+  // 소비/심리
+  umcsent:         'UMCSENT',        // 미시간 소비자심리지수
+  rsxfs:           'RSXFS',          // 소매판매 (식품서비스 제외)
+  // 산업/생산
+  indpro:          'INDPRO',         // 산업생산지수
+  capacity:        'TCU',            // 설비가동률
+  // 무역
+  bopgstb:         'BOPGSTB',        // 무역수지
+  // 연준 대차대조표
+  walcl:           'WALCL',          // 연준 총자산 (QT 추적)
+  // 기대 인플레이션
+  bei_10y:         'T10YIE',         // 10년 BEI (손익분기 인플레이션율)
+  bei_5y:          'T5YIE',          // 5년 BEI
+  // 추가 환율
+  usdcny:          'DEXCHUS',        // 위안/달러
 }
 
 // FRED는 데이터 없는 날짜에 "." 반환 → null 변환
