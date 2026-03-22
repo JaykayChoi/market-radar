@@ -301,6 +301,72 @@ router.get('/stocks', async (req, res) => {
   }
 })
 
+// ── 공매도 (Short Interest) 캐시 ─────────────────────────────────
+let shortCache = { data: null, ts: 0 }
+const SHORT_TTL = 30 * 60 * 1000  // 30분
+
+// GET /api/yahoo/short — S&P 500 전종목 공매도 데이터 (defaultKeyStatistics)
+router.get('/short', async (req, res) => {
+  try {
+    // 캐시 확인
+    if (shortCache.data && Date.now() - shortCache.ts < SHORT_TTL) {
+      return res.json(shortCache.data)
+    }
+
+    const sp500 = await getSP500Symbols()
+    const auth = await getYfAuth()
+
+    const sectorMap = new Map(sp500.map(s => [s.symbol, { name: s.name, sector: s.sector }]))
+    const allResults = []
+
+    // 20개씩 배치 처리 (v10 quoteSummary — defaultKeyStatistics + price)
+    for (let i = 0; i < sp500.length; i += 20) {
+      const batch = sp500.slice(i, i + 20)
+      const results = await Promise.allSettled(batch.map(async ({ symbol }) => {
+        const r = await fetch(
+          `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=defaultKeyStatistics,price&crumb=${auth.crumb}`,
+          { headers: { ...HEADERS, Cookie: auth.cookie } }
+        )
+        if (!r.ok) return null
+        const d = await r.json()
+        const ks = d.quoteSummary?.result?.[0]?.defaultKeyStatistics
+        const pr = d.quoteSummary?.result?.[0]?.price
+        if (!ks) return null
+
+        const meta = sectorMap.get(symbol) || {}
+        return {
+          symbol,
+          name:               meta.name || pr?.shortName || symbol,
+          sector:             meta.sector || '—',
+          price:              pr?.regularMarketPrice?.raw ?? null,
+          marketCap:          pr?.marketCap?.raw ?? null,
+          shortInterest:      ks.sharesShort?.raw ?? null,
+          shortPctFloat:      ks.shortPercentOfFloat?.raw != null ? parseFloat((ks.shortPercentOfFloat.raw * 100).toFixed(2)) : null,
+          daysToCover:        ks.shortRatio?.raw ?? null,
+          prevShortInterest:  ks.sharesShortPriorMonth?.raw ?? null,
+          sharesFloat:        ks.floatShares?.raw ?? null,
+          shortDate:          ks.dateShortInterest?.fmt ?? null,
+          prevShortDate:      ks.sharesShortPreviousMonthDate?.fmt ?? null,
+        }
+      }))
+      for (const r of results) {
+        if (r.status === 'fulfilled' && r.value && r.value.shortInterest != null) {
+          allResults.push(r.value)
+        }
+      }
+    }
+
+    // Short% Float 내림차순 정렬
+    allResults.sort((a, b) => (b.shortPctFloat || 0) - (a.shortPctFloat || 0))
+
+    const payload = { count: allResults.length, stocks: allResults, updatedAt: new Date().toISOString() }
+    shortCache = { data: payload, ts: Date.now() }
+    res.json(payload)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // GET /api/yahoo/options/pcr?symbol=SPY — 만기일별 P/C Ratio 요약
 // 가장 가까운 만기일 최대 8개에 대해 P/C ratio 계산
 router.get('/options/pcr', async (req, res) => {

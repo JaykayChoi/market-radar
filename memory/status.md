@@ -6,7 +6,7 @@ type: project
 
 ## 현재 상태 (2026-03-22)
 
-**매크로 34개 지표 확대 — 구현 완료**
+**미국 공매도 탭 — 구현 완료**
 
 ## 구현된 탭 목록
 
@@ -22,5 +22,6 @@ type: project
 | 미국 IPO/실적 캘린더 | Finnhub 달력 UI, TOP10/50/100 하이라이트 |
 | 미국 옵션 | 옵션 체인 + P/C Ratio + 애널리스트 (Yahoo Finance) |
 | 미국 종목 정보 | S&P 500 전종목 리스트 + 애널리스트 목표가/괴리율 |
+| 미국 공매도 | S&P 500 공매도 (Short% Float, DTC, 히트맵+테이블+상세) |
 
 **다음 작업:** feature_candidates_us.md 참고
