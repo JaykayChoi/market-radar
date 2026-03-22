@@ -178,6 +178,89 @@ router.get('/options', async (req, res) => {
   }
 })
 
+// ── S&P 500 종목 리스트 (Wikipedia) + 벌크 시세 ─────────────────
+
+let sp500Cache = { symbols: [], ts: 0 }
+const SP500_TTL = 24 * 60 * 60 * 1000  // 24시간
+
+async function getSP500Symbols() {
+  if (sp500Cache.symbols.length > 0 && Date.now() - sp500Cache.ts < SP500_TTL) {
+    return sp500Cache.symbols
+  }
+  const url = 'https://en.wikipedia.org/w/api.php?action=parse&page=List_of_S%26P_500_companies&prop=text&section=1&format=json'
+  const r = await fetch(url)
+  if (!r.ok) throw new Error('Wikipedia S&P 500 페이지 로드 실패')
+  const d = await r.json()
+  const html = d.parse?.text?.['*'] || ''
+  const rows = html.match(/<tr[\s\S]*?<\/tr>/g) || []
+  const stocks = []
+  for (const row of rows.slice(1)) {
+    const tds = (row.match(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/g) || [])
+      .map(td => td.replace(/<[^>]+>/g, '').trim())
+    if (tds.length >= 4 && tds[0].match(/^[A-Z.]{1,5}$/)) {
+      stocks.push({ symbol: tds[0], name: tds[1], sector: tds[2] })
+    }
+  }
+  sp500Cache = { symbols: stocks, ts: Date.now() }
+  return stocks
+}
+
+// GET /api/yahoo/stocks — S&P 500 전종목 시세 (벌크)
+router.get('/stocks', async (req, res) => {
+  try {
+    const sp500 = await getSP500Symbols()
+    const auth = await getYfAuth()
+
+    // 100개씩 나눠서 벌크 호출
+    const chunks = []
+    for (let i = 0; i < sp500.length; i += 100) {
+      chunks.push(sp500.slice(i, i + 100))
+    }
+
+    const allQuotes = []
+    for (const chunk of chunks) {
+      const symbols = chunk.map(s => s.symbol).join(',')
+      const data = await fetch(
+        `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbols}&crumb=${auth.crumb}`,
+        { headers: { ...HEADERS, Cookie: auth.cookie } }
+      ).then(r => {
+        if (!r.ok) throw new Error(`Yahoo quote 오류: ${r.status}`)
+        return r.json()
+      })
+      const results = data.quoteResponse?.result || []
+      allQuotes.push(...results)
+    }
+
+    // SP500 메타데이터(섹터)와 합치기
+    const sectorMap = new Map(sp500.map(s => [s.symbol, s.sector]))
+    const stocks = allQuotes.map(q => ({
+      symbol:     q.symbol,
+      name:       q.shortName || q.longName || q.symbol,
+      sector:     sectorMap.get(q.symbol) || q.sector || '—',
+      price:      q.regularMarketPrice,
+      change:     q.regularMarketChange,
+      changePct:  q.regularMarketChangePercent,
+      marketCap:  q.marketCap,
+      pe:         q.trailingPE,
+      forwardPe:  q.forwardPE,
+      eps:        q.epsTrailingTwelveMonths,
+      divYield:   q.dividendYield ? q.dividendYield * 100 : null,  // 소수 → %
+      volume:     q.regularMarketVolume,
+      avgVolume:  q.averageDailyVolume3Month,
+      w52High:    q.fiftyTwoWeekHigh,
+      w52Low:     q.fiftyTwoWeekLow,
+      beta:       q.beta,
+    })).filter(s => s.price != null)
+
+    // 시총 내림차순 정렬
+    stocks.sort((a, b) => (b.marketCap || 0) - (a.marketCap || 0))
+
+    res.json({ count: stocks.length, stocks })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // GET /api/yahoo/options/pcr?symbol=SPY — 만기일별 P/C Ratio 요약
 // 가장 가까운 만기일 최대 8개에 대해 P/C ratio 계산
 router.get('/options/pcr', async (req, res) => {
