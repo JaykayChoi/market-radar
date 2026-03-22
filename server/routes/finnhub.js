@@ -90,6 +90,36 @@ router.get('/calendar/economic', async (req, res) => {
   }
 })
 
+// FOMC 2025-2026 일정 (공식 발표 기준)
+const FOMC_SCHEDULE = [
+  // 2025
+  { date: '2025-01-29', type: 'meeting', summary: false, dots: false },
+  { date: '2025-03-19', type: 'meeting', summary: true,  dots: true  },
+  { date: '2025-05-07', type: 'meeting', summary: false, dots: false },
+  { date: '2025-06-18', type: 'meeting', summary: true,  dots: true  },
+  { date: '2025-07-30', type: 'meeting', summary: false, dots: false },
+  { date: '2025-09-17', type: 'meeting', summary: true,  dots: true  },
+  { date: '2025-10-29', type: 'meeting', summary: false, dots: false },
+  { date: '2025-12-17', type: 'meeting', summary: true,  dots: true  },
+  // 2026
+  { date: '2026-01-28', type: 'meeting', summary: false, dots: false },
+  { date: '2026-03-18', type: 'meeting', summary: true,  dots: true  },
+  { date: '2026-04-29', type: 'meeting', summary: false, dots: false },
+  { date: '2026-06-17', type: 'meeting', summary: true,  dots: true  },
+  { date: '2026-07-29', type: 'meeting', summary: false, dots: false },
+  { date: '2026-09-16', type: 'meeting', summary: true,  dots: true  },
+  { date: '2026-10-28', type: 'meeting', summary: false, dots: false },
+  { date: '2026-12-16', type: 'meeting', summary: true,  dots: true  },
+]
+
+// GET /api/finnhub/fomc — FOMC 일정
+router.get('/fomc', (req, res) => {
+  const { year } = req.query
+  let schedule = FOMC_SCHEDULE
+  if (year) schedule = schedule.filter(s => s.date.startsWith(year))
+  res.json({ schedule })
+})
+
 // GET /api/finnhub/indicator/keys — 사전 정의 경제지표 목록
 router.get('/indicator/keys', (req, res) => {
   res.json({ indicators: INDICATORS })

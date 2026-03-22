@@ -69,6 +69,15 @@ browser_profile/        — Chromium persistent profile (KRX login session)
 | ETF 순자산변화 | IRP 적격 ETF 순설정액 (주가효과 제거), 테마 분류 |
 | 투자자별 순매수 | 외국인/기관 순매수 상위 종목, 기간: 1일/3일/1주/2주 |
 | 공매도 | 공매도 잔고/거래 상위 100종목 (코스피+코스닥 각 50, 가장 최근 날짜 기준) |
+| 급등 | 거래량 급등 + 52주 신고가/신저가 (서브탭, 시가총액 포함) |
+| 미국 ETF | 32개 ETF 시세/성과 + 자금흐름(서브탭), 보유종목 TOP20 (Yahoo+FMP) |
+| 미국 매크로 | 34개 거시지표, 9개 카테고리, 위험신호 색상 (FRED) |
+| 미국 13F 기관 | SEC EDGAR 13F 기관 포지션 (50개 기관, 전분기 비교) |
+| 미국 IPO/실적 캘린더 | Finnhub 달력 UI, TOP10/50/100 하이라이트 |
+| 미국 옵션 | 옵션 체인 + P/C Ratio + 애널리스트 (Yahoo Finance) |
+| 미국 종목 정보 | S&P 500 전종목 + 목표가/괴리율 + 52주 신고가/신저가 (서브탭) |
+| 미국 공매도 | S&P 500 공매도 (Short% Float, DTC, 히트맵+테이블) |
+| 미국 경제 캘린더 | FRED 릴리스 13개 지표 + FOMC + 국채 경매(TreasuryDirect), 달력/목록 뷰 |
 
 ## Collection flow
 

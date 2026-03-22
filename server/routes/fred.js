@@ -153,5 +153,142 @@ router.get('/keys', (req, res) => {
   res.json({ series: SERIES })
 })
 
+// ── 경제 캘린더 (FRED Release Dates) ──────────────────────────────
+
+// 주요 경제지표 릴리스 ID → 메타 정보
+// seriesId: 최근 값 조회용 FRED 시리즈, unit: 표시 단위
+const ECON_RELEASES = [
+  { id: 10,  name: 'CPI (소비자물가지수)',         event: 'Consumer Price Index',        impact: 'high',   category: 'prices',        seriesId: 'CPIAUCSL',   unit: '',     link: 'https://www.bls.gov/cpi/' },
+  { id: 50,  name: '고용보고서 (NFP/실업률)',       event: 'Employment Situation',         impact: 'high',   category: 'jobs',          seriesId: 'PAYEMS',     unit: 'K',    link: 'https://www.bls.gov/news.release/empsit.nr0.htm' },
+  { id: 53,  name: 'GDP 성장률',                    event: 'Gross Domestic Product',       impact: 'high',   category: 'growth',        seriesId: 'GDPC1',      unit: 'B$',   link: 'https://www.bea.gov/data/gdp/gross-domestic-product' },
+  { id: 21,  name: 'PPI (생산자물가지수)',          event: 'Producer Price Index',          impact: 'high',   category: 'prices',        seriesId: 'PPIACO',     unit: '',     link: 'https://www.bls.gov/ppi/' },
+  { id: 235, name: 'PCE 물가/개인소득',             event: 'Personal Income & Outlays',    impact: 'high',   category: 'prices',        seriesId: 'PCEPI',      unit: '',     link: 'https://www.bea.gov/data/personal-consumption-expenditures-price-index' },
+  { id: 46,  name: '소매판매',                      event: 'Advance Retail Sales',         impact: 'high',   category: 'consumption',   seriesId: 'RSXFS',      unit: 'M$',   link: 'https://www.census.gov/retail/index.html' },
+  { id: 13,  name: '주택착공/건축허가',             event: 'Housing Starts & Permits',     impact: 'medium', category: 'housing',       seriesId: 'HOUST',      unit: 'K',    link: 'https://www.census.gov/construction/nrc/index.html' },
+  { id: 320, name: '신규 실업수당 청구',            event: 'Unemployment Insurance Claims',impact: 'medium', category: 'jobs', weekly: true, seriesId: 'ICSA',  unit: 'K',    link: 'https://www.dol.gov/ui/data.pdf' },
+  { id: 39,  name: '미시간 소비자심리',             event: 'Michigan Consumer Sentiment',   impact: 'medium', category: 'sentiment',     seriesId: 'UMCSENT',    unit: '',     link: 'http://www.sca.isr.umich.edu/' },
+  { id: 52,  name: '무역수지',                      event: 'U.S. Trade Balance',           impact: 'medium', category: 'trade',         seriesId: 'BOPGSTB',    unit: 'M$',   link: 'https://www.census.gov/foreign-trade/data/index.html' },
+  { id: 19,  name: '기업재고',                      event: 'Business Inventories',         impact: 'low',    category: 'manufacturing', seriesId: 'ISRATIO',    unit: '',     link: 'https://www.census.gov/mtis/index.html' },
+  { id: 42,  name: '신축주택판매',                  event: 'New Home Sales',               impact: 'medium', category: 'housing',       seriesId: 'HSN1F',      unit: 'K',    link: 'https://www.census.gov/construction/nrs/index.html' },
+  { id: 40,  name: '기존주택판매',                  event: 'Existing Home Sales',          impact: 'medium', category: 'housing',       seriesId: 'EXHOSLUSM495S', unit: 'M', link: 'https://www.nar.realtor/research-and-statistics/housing-statistics/existing-home-sales' },
+]
+
+// GET /api/fred/calendar — 경제지표 발표 캘린더
+// query: from=YYYY-MM-DD, to=YYYY-MM-DD
+router.get('/calendar', async (req, res) => {
+  try {
+    const now = new Date()
+    const from = req.query.from || new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+    const to   = req.query.to   || new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10)
+
+    // 1) 릴리스 날짜 + 최근 관측값을 병렬 조회
+    const results = await Promise.allSettled(
+      ECON_RELEASES.map(async (rel) => {
+        const [dateData, obsData] = await Promise.all([
+          fredGet('/release/dates', {
+            release_id: rel.id,
+            include_release_dates_with_no_data: 'true',
+            sort_order: 'asc',
+          }),
+          rel.seriesId ? fredGet('/series/observations', {
+            series_id: rel.seriesId,
+            sort_order: 'desc',
+            limit: 3,
+          }).catch(() => null) : Promise.resolve(null),
+        ])
+
+        let dates = (dateData.release_dates || [])
+          .filter(d => d.date >= from && d.date <= to)
+          .map(d => d.date)
+
+        // 주간 릴리스는 월별 첫 번째만 유지
+        if (rel.weekly) {
+          const seen = new Set()
+          dates = dates.filter(d => {
+            const ym = d.slice(0, 7)
+            if (seen.has(ym)) return false
+            seen.add(ym)
+            return true
+          })
+        }
+
+        // 최근 3개 관측값 파싱
+        let actual = null, prev = null, prev2 = null
+        if (obsData?.observations?.length) {
+          const obs = obsData.observations
+          actual = parseValue(obs[0]?.value)
+          prev   = parseValue(obs[1]?.value)
+          prev2  = parseValue(obs[2]?.value)
+        }
+
+        return { ...rel, dates, actual, prev, prev2 }
+      })
+    )
+
+    // 2) 날짜별 이벤트 맵으로 변환
+    const calendar = []
+    for (const r of results) {
+      if (r.status !== 'fulfilled') continue
+      const rel = r.value
+      for (const date of rel.dates) {
+        calendar.push({
+          date,
+          event:    rel.event,
+          name:     rel.name,
+          impact:   rel.impact,
+          category: rel.category,
+          releaseId: rel.id,
+          unit:     rel.unit || '',
+          link:     rel.link || null,
+          actual:   rel.actual,
+          prev:     rel.prev,
+          prev2:    rel.prev2,
+        })
+      }
+    }
+
+    // 날짜순 → 중요도순 정렬
+    const impOrd = { high: 0, medium: 1, low: 2 }
+    calendar.sort((a, b) => a.date.localeCompare(b.date) || (impOrd[a.impact] ?? 3) - (impOrd[b.impact] ?? 3))
+
+    res.json({ economicCalendar: calendar, from, to })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// ── 국채 경매 일정 (TreasuryDirect API) ───────────────────────────
+
+router.get('/treasury-auctions', async (req, res) => {
+  try {
+    const now = new Date()
+    const from = req.query.from || new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+    const to   = req.query.to   || new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString().slice(0, 10)
+
+    const url = `https://www.treasurydirect.gov/TA_WS/securities/announced?format=json&pagesize=50`
+    const r = await fetch(url, { headers: { 'User-Agent': 'MarketRadar/1.0' } })
+    if (!r.ok) throw new Error(`TreasuryDirect API 오류: ${r.status}`)
+    const data = await r.json()
+
+    const auctions = data
+      .filter(a => a.auctionDate && a.auctionDate.slice(0, 10) >= from && a.auctionDate.slice(0, 10) <= to)
+      .map(a => ({
+        date:         a.auctionDate.slice(0, 10),
+        type:         a.securityType,    // Note, Bond, Bill, TIPS, FRN
+        term:         a.securityTerm,    // 7-Year, 10-Year, etc.
+        cusip:        a.cusip,
+        issueDate:    a.issueDate?.slice(0, 10),
+        maturityDate: a.maturityDate?.slice(0, 10),
+        offeringAmt:  a.offeringAmount ? parseFloat(a.offeringAmount) : null,
+        announcementDate: a.announcementDate?.slice(0, 10),
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date))
+
+    res.json({ auctions, from, to })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 module.exports = router
 module.exports.SERIES = SERIES

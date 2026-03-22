@@ -12,12 +12,13 @@ import UsCalendarTab from './components/tabs/us/UsCalendarTab'
 import UsOptionsTab from './components/tabs/us/UsOptionsTab'
 import UsStockTab from './components/tabs/us/UsStockTab'
 import UsShortTab from './components/tabs/us/UsShortTab'
+import UsEconCalendarTab from './components/tabs/us/UsEconCalendarTab'
 
 const KR_TABS = [
   { id: 'etf',          label: 'ETF 순자산변화'  },
   { id: 'investor',     label: '투자자별 순매수'  },
   { id: 'supply',       label: '공매도'           },
-  { id: 'volume_surge', label: '거래량 급등'       },
+  { id: 'volume_surge', label: '급등'              },
 ]
 
 const US_TABS = [
@@ -28,6 +29,7 @@ const US_TABS = [
   { id: 'us_options',  label: '옵션' },
   { id: 'us_stock',    label: '종목 정보' },
   { id: 'us_short',    label: '공매도' },
+  { id: 'us_econ_calendar', label: '경제 캘린더' },
 ]
 
 const MARKETS = [
@@ -178,6 +180,7 @@ export default function App() {
         {market === 'us' && activeTab === 'us_options'  && <UsOptionsTab initialSymbol={optionsSymbol} onSymbolUsed={() => setOptionsSymbol(null)} />}
         {market === 'us' && activeTab === 'us_stock'    && <UsStockTab onViewOptions={(sym) => { setOptionsSymbol(sym); setActiveUsTab('us_options') }} />}
         {market === 'us' && activeTab === 'us_short'   && <UsShortTab />}
+        {market === 'us' && activeTab === 'us_econ_calendar' && <UsEconCalendarTab />}
       </main>
 
       {/* Toast */}

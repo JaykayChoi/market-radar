@@ -18,9 +18,132 @@ function fmtVol(v) {
   return v.toLocaleString()
 }
 
-// ── 컴포넌트 ──────────────────────────────────────────────────────
+// ── 52주 신고가/신저가 뷰 ──────────────────────────────────────────
+
+function Week52UsView({ stocks, onViewOptions }) {
+  const [view, setView]     = useState('high')
+  const [sector, setSector] = useState('전체')
+
+  const sectors = useMemo(() => {
+    const set = new Set(stocks.map(s => s.sector).filter(Boolean))
+    return ['전체', ...Array.from(set).sort()]
+  }, [stocks])
+
+  const enriched = useMemo(() => {
+    return stocks
+      .filter(s => s.w52High && s.w52Low && s.price)
+      .map(s => ({
+        ...s,
+        fromHighPct: parseFloat(((s.price - s.w52High) / s.w52High * 100).toFixed(2)),
+        fromLowPct:  parseFloat(((s.price - s.w52Low) / s.w52Low * 100).toFixed(2)),
+        w52pct: ((s.price - s.w52Low) / (s.w52High - s.w52Low) * 100),
+      }))
+  }, [stocks])
+
+  const list = useMemo(() => {
+    let data = view === 'high'
+      ? enriched.filter(s => s.fromHighPct >= -5).sort((a, b) => b.fromHighPct - a.fromHighPct)
+      : enriched.filter(s => s.fromLowPct <= 10).sort((a, b) => a.fromLowPct - b.fromLowPct)
+    if (sector !== '전체') data = data.filter(s => s.sector === sector)
+    return data
+  }, [enriched, view, sector])
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex border border-gray-300 rounded overflow-hidden">
+          <button onClick={() => setView('high')}
+            className={`px-4 py-1.5 text-sm font-medium ${view === 'high' ? 'bg-red-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+            52주 신고가
+          </button>
+          <button onClick={() => setView('low')}
+            className={`px-4 py-1.5 text-sm font-medium ${view === 'low' ? 'bg-blue-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+            52주 신저가
+          </button>
+        </div>
+        <select value={sector} onChange={e => setSector(e.target.value)}
+          className="text-xs border border-gray-300 rounded px-2 py-1.5">
+          {sectors.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <span className="ml-auto text-xs text-gray-400">{list.length}종목 / S&P 500</span>
+      </div>
+
+      <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+        <table className="w-full text-xs">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500">종목</th>
+              <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-500">섹터</th>
+              <th className="px-2 py-2 text-right text-[10px] font-semibold text-gray-500">현재가</th>
+              <th className="px-2 py-2 text-right text-[10px] font-semibold text-gray-500">시가총액</th>
+              <th className="px-2 py-2 text-right text-[10px] font-semibold text-gray-500">등락률</th>
+              <th className="px-2 py-2 text-right text-[10px] font-semibold text-gray-500">52주 고가</th>
+              <th className="px-2 py-2 text-right text-[10px] font-semibold text-gray-500">52주 저가</th>
+              <th className="px-2 py-2 text-right text-[10px] font-semibold text-gray-500">고가 대비</th>
+              <th className="px-2 py-2 text-center text-[10px] font-semibold text-gray-500 w-28">위치</th>
+              <th className="px-2 py-2 text-center text-[10px] font-semibold text-gray-500 w-20"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 bg-white">
+            {list.length === 0 && (
+              <tr><td colSpan={10} className="text-center py-8 text-gray-400">해당 조건의 종목이 없습니다</td></tr>
+            )}
+            {list.map(s => {
+              const isAtHigh = s.fromHighPct >= -1
+              const isAtLow = s.fromLowPct <= 3
+              return (
+                <tr key={s.symbol} className={`hover:bg-gray-50 ${isAtHigh ? 'bg-red-50' : isAtLow ? 'bg-blue-50' : ''}`}>
+                  <td className="px-2 py-1.5">
+                    <span className="font-semibold text-blue-600">{s.symbol}</span>
+                    <span className="ml-1 text-gray-500">{s.name}</span>
+                  </td>
+                  <td className="px-2 py-1.5 text-gray-500">{s.sector}</td>
+                  <td className="px-2 py-1.5 text-right font-medium text-gray-900">${fmtNum(s.price)}</td>
+                  <td className="px-2 py-1.5 text-right text-gray-600">{fmtCap(s.marketCap)}</td>
+                  <td className={`px-2 py-1.5 text-right font-bold ${(s.changePct || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {(s.changePct || 0) >= 0 ? '+' : ''}{fmtNum(s.changePct)}%
+                  </td>
+                  <td className="px-2 py-1.5 text-right text-red-500">${fmtNum(s.w52High)}</td>
+                  <td className="px-2 py-1.5 text-right text-blue-500">${fmtNum(s.w52Low)}</td>
+                  <td className={`px-2 py-1.5 text-right font-medium ${s.fromHighPct >= 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                    {s.fromHighPct >= 0 ? '+' : ''}{s.fromHighPct}%
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <div className="w-full bg-gray-100 rounded-full h-1.5">
+                      <div className="bg-gradient-to-r from-blue-400 to-red-400 h-1.5 rounded-full"
+                        style={{ width: `${Math.max(0, Math.min(100, s.w52pct)).toFixed(0)}%` }} />
+                    </div>
+                  </td>
+                  <td className="px-2 py-1.5 text-center whitespace-nowrap">
+                    <button onClick={() => onViewOptions?.(s.symbol)}
+                      className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700 hover:bg-purple-200">옵션</button>
+                    <a href={`https://www.chartmill.com/stock/quote/${s.symbol}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 inline-block">상세↗</a>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="text-xs text-gray-400">
+        ※ 52주 고가 대비 -5% 이내 = 신고가 근접, 52주 저가 대비 +10% 이내 = 신저가 근접. Yahoo Finance 기준.
+      </p>
+    </div>
+  )
+}
+
+// ── 메인 컴포넌트 ──────────────────────────────────────────────────
+
+const US_STOCK_SUBS = [
+  { id: 'list',   label: '종목 리스트' },
+  { id: 'week52', label: '52주 신고가/신저가' },
+]
 
 export default function UsStockTab({ onViewOptions }) {
+  const [subTab, setSubTab]   = useState('list')
   const [stocks, setStocks]   = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState(null)
@@ -91,6 +214,18 @@ export default function UsStockTab({ onViewOptions }) {
 
   return (
     <div data-testid="us-stock-tab">
+      {/* 서브탭 */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex border border-gray-300 rounded overflow-hidden">
+          {US_STOCK_SUBS.map(t => (
+            <button key={t.id} onClick={() => setSubTab(t.id)}
+              className={`px-3 py-1 text-xs font-medium ${
+                subTab === t.id ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+              }`}>{t.label}</button>
+          ))}
+        </div>
+      </div>
+
       {/* 로딩 */}
       {loading && (
         <div className="flex items-center justify-center py-20 bg-white rounded-lg border border-gray-200">
@@ -108,7 +243,12 @@ export default function UsStockTab({ onViewOptions }) {
         </div>
       )}
 
-      {!loading && !error && stocks.length > 0 && (
+      {/* 52주 신고가/신저가 뷰 */}
+      {!loading && !error && subTab === 'week52' && stocks.length > 0 && (
+        <Week52UsView stocks={stocks} onViewOptions={onViewOptions} />
+      )}
+
+      {!loading && !error && subTab === 'list' && stocks.length > 0 && (
         <>
           {/* 시장 요약 */}
           {summary && (
