@@ -152,6 +152,175 @@ function OptionAnalysis({ chain }) {
   )
 }
 
+// ── 애널리스트 뷰 (모의 데이터) ──────────────────────────────────
+
+const GRADE_STYLE = {
+  'Strong Buy':  { bg: 'bg-green-600', text: 'text-white' },
+  'Outperform':  { bg: 'bg-green-500', text: 'text-white' },
+  'Buy':         { bg: 'bg-green-500', text: 'text-white' },
+  'Overweight':  { bg: 'bg-green-400', text: 'text-white' },
+  'Market Perform': { bg: 'bg-gray-200', text: 'text-gray-700' },
+  'Neutral':     { bg: 'bg-gray-200', text: 'text-gray-700' },
+  'Hold':        { bg: 'bg-gray-200', text: 'text-gray-700' },
+  'Equal-Weight':{ bg: 'bg-gray-200', text: 'text-gray-700' },
+  'Underperform':{ bg: 'bg-red-400', text: 'text-white' },
+  'Underweight': { bg: 'bg-red-400', text: 'text-white' },
+  'Sell':        { bg: 'bg-red-500', text: 'text-white' },
+}
+
+const ACTION_LABEL = {
+  'init':   { label: '신규', color: 'text-purple-600' },
+  'up':     { label: '상향', color: 'text-green-600' },
+  'down':   { label: '하향', color: 'text-red-600' },
+  'main':   { label: '유지', color: 'text-gray-500' },
+  'reit':   { label: '재확인', color: 'text-blue-600' },
+}
+
+const MOCK_ANALYST = {
+  summary: { strongBuy: 14, buy: 22, hold: 16, sell: 2, strongSell: 0, targetMean: 295.43, targetHigh: 350, targetLow: 205, currentPrice: 248.0 },
+  ratings: [
+    { date: '2026-03-05', firm: 'Wedbush',       grade: 'Outperform',  action: 'reit', analystName: 'Dan Ives',         rating: 4.8 },
+    { date: '2026-03-05', firm: 'Rosenblatt',     grade: 'Neutral',     action: 'main', analystName: 'Barton Crockett',  rating: 4.2 },
+    { date: '2026-03-03', firm: 'Barclays',        grade: 'Underweight', action: 'main', analystName: 'Tim Long',         rating: 3.9 },
+    { date: '2026-02-17', firm: 'Wedbush',         grade: 'Outperform',  action: 'reit', analystName: 'Dan Ives',         rating: 4.8 },
+    { date: '2026-01-30', firm: 'Jefferies',       grade: 'Hold',        action: 'main', analystName: 'Edison Lee',       rating: 4.1 },
+    { date: '2026-01-27', firm: 'Morgan Stanley',  grade: 'Overweight',  action: 'main', analystName: 'Erik Woodring',    rating: 4.6 },
+    { date: '2026-01-24', firm: 'Bernstein',       grade: 'Outperform',  action: 'main', analystName: 'Toni Sacconaghi', rating: 4.7 },
+    { date: '2026-01-22', firm: 'Goldman Sachs',   grade: 'Buy',         action: 'up',   analystName: 'Michael Ng',       rating: 4.5 },
+    { date: '2026-01-15', firm: 'JPMorgan',        grade: 'Overweight',  action: 'main', analystName: 'Samik Chatterjee', rating: 4.4 },
+    { date: '2026-01-10', firm: 'Bank of America', grade: 'Buy',         action: 'reit', analystName: 'Wamsi Mohan',      rating: 4.3 },
+    { date: '2025-12-20', firm: 'UBS',             grade: 'Buy',         action: 'init', analystName: 'David Vogt',       rating: 4.0 },
+    { date: '2025-12-15', firm: 'Piper Sandler',   grade: 'Overweight',  action: 'up',   analystName: 'Harsh Kumar',      rating: 3.8 },
+    { date: '2025-12-10', firm: 'Needham',         grade: 'Strong Buy',  action: 'reit', analystName: 'Laura Martin',     rating: 4.1 },
+    { date: '2025-12-05', firm: 'Wells Fargo',     grade: 'Overweight',  action: 'main', analystName: 'Aaron Rakers',     rating: 4.3 },
+    { date: '2025-11-28', firm: 'Citi',            grade: 'Buy',         action: 'main', analystName: 'Atif Malik',       rating: 4.5 },
+  ],
+}
+
+function AnalystView({ symbol }) {
+  const data = MOCK_ANALYST
+  const s = data.summary
+  const totalRatings = s.strongBuy + s.buy + s.hold + s.sell + s.strongSell
+  const targetDiff = ((s.targetMean - s.currentPrice) / s.currentPrice * 100).toFixed(1)
+
+  return (
+    <div>
+      <h2 className="text-lg font-bold text-gray-900 mb-3">{symbol} 애널리스트 의견</h2>
+
+      {/* 요약 카드 */}
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        {/* 좌측: 투자의견 분포 */}
+        <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+          <p className="text-xs font-semibold text-gray-500 mb-3">투자의견 분포 ({totalRatings}명)</p>
+          <div className="space-y-2">
+            {[
+              { label: 'Strong Buy', count: s.strongBuy, color: 'bg-green-600' },
+              { label: 'Buy',        count: s.buy,       color: 'bg-green-400' },
+              { label: 'Hold',       count: s.hold,      color: 'bg-gray-300' },
+              { label: 'Sell',       count: s.sell,       color: 'bg-red-400' },
+              { label: 'Strong Sell',count: s.strongSell, color: 'bg-red-600' },
+            ].map(r => (
+              <div key={r.label} className="flex items-center gap-2 text-xs">
+                <span className="w-20 text-gray-500">{r.label}</span>
+                <div className="flex-1 bg-gray-100 rounded-full h-4">
+                  <div className={`${r.color} h-4 rounded-full flex items-center pl-2`}
+                    style={{ width: `${Math.max(totalRatings > 0 ? r.count / totalRatings * 100 : 0, r.count > 0 ? 8 : 0)}%` }}>
+                    {r.count > 0 && <span className="text-[10px] text-white font-medium">{r.count}</span>}
+                  </div>
+                </div>
+                <span className="w-6 text-right text-gray-600 font-medium">{r.count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 우측: 목표가 */}
+        <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+          <p className="text-xs font-semibold text-gray-500 mb-3">목표가 범위</p>
+          <div className="text-center mb-3">
+            <p className="text-3xl font-bold text-gray-900">${fmtNum(s.targetMean, 0)}</p>
+            <p className={`text-sm font-medium ${targetDiff > 0 ? 'text-green-600' : 'text-red-600'}`}>
+              현재가 대비 {targetDiff > 0 ? '+' : ''}{targetDiff}%
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">현재가 ${fmtNum(s.currentPrice, 0)}</p>
+          </div>
+          {/* 목표가 바 */}
+          <div className="relative mt-4">
+            <div className="flex items-center gap-1 text-[10px] text-gray-400 mb-1">
+              <span>${fmtNum(s.targetLow, 0)}</span>
+              <div className="flex-1" />
+              <span>${fmtNum(s.targetHigh, 0)}</span>
+            </div>
+            <div className="h-3 bg-gray-100 rounded-full relative">
+              {/* 현재가 위치 */}
+              <div className="absolute top-0 h-3 w-0.5 bg-blue-600 z-10"
+                style={{ left: `${((s.currentPrice - s.targetLow) / (s.targetHigh - s.targetLow) * 100).toFixed(0)}%` }} />
+              {/* 평균 목표가 위치 */}
+              <div className="absolute top-0 h-3 w-0.5 bg-green-600 z-10"
+                style={{ left: `${((s.targetMean - s.targetLow) / (s.targetHigh - s.targetLow) * 100).toFixed(0)}%` }} />
+              {/* 범위 바 */}
+              <div className="absolute top-0 h-3 bg-green-200 rounded-full"
+                style={{
+                  left: `${((s.currentPrice - s.targetLow) / (s.targetHigh - s.targetLow) * 100).toFixed(0)}%`,
+                  width: `${(((s.targetMean - s.currentPrice) / (s.targetHigh - s.targetLow)) * 100).toFixed(0)}%`,
+                }} />
+            </div>
+            <div className="flex items-center gap-3 mt-1.5 text-[10px] text-gray-400">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 bg-blue-600 inline-block rounded-sm" /> 현재가</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 bg-green-600 inline-block rounded-sm" /> 평균 목표가</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 개별 애널리스트 등급 히스토리 */}
+      <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+        <table className="w-full text-xs">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-500">날짜</th>
+              <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-500">증권사</th>
+              <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-500">애널리스트</th>
+              <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-500">평점</th>
+              <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-500">투자의견</th>
+              <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-500">액션</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 bg-white">
+            {data.ratings.map((r, i) => {
+              const gs = GRADE_STYLE[r.grade] || { bg: 'bg-gray-200', text: 'text-gray-700' }
+              const act = ACTION_LABEL[r.action] || { label: r.action, color: 'text-gray-500' }
+              return (
+                <tr key={i} className="hover:bg-gray-50">
+                  <td className="px-3 py-2 text-gray-500">{r.date}</td>
+                  <td className="px-3 py-2 font-medium text-gray-900">{r.firm}</td>
+                  <td className="px-3 py-2 text-gray-600">{r.analystName}</td>
+                  <td className="px-3 py-2 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <span className="text-yellow-500">★</span>
+                      <span className="font-medium text-gray-700">{r.rating.toFixed(1)}</span>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${gs.bg} ${gs.text}`}>
+                      {r.grade}
+                    </span>
+                  </td>
+                  <td className={`px-3 py-2 text-center font-medium ${act.color}`}>
+                    {act.label}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="text-xs text-orange-500 mt-2">※ 현재 모의 데이터입니다. Yahoo Finance + Finnhub 실제 연동 예정.</p>
+    </div>
+  )
+}
+
 const POPULAR_SYMBOLS = ['SPY', 'QQQ', 'AAPL', 'MSFT', 'NVDA', 'TSLA', 'AMZN', 'META', 'GOOGL', 'AMD']
 
 // ── 컴포넌트 ──────────────────────────────────────────────────────
@@ -268,8 +437,9 @@ export default function UsOptionsTab({ initialSymbol, onSymbolUsed }) {
       <div className="flex items-center justify-between mb-4">
         <div className="flex gap-1">
           {[
-            { id: 'chain', label: '옵션 체인' },
-            { id: 'pcr',   label: 'Put/Call Ratio' },
+            { id: 'chain',   label: '옵션 체인' },
+            { id: 'pcr',     label: 'Put/Call Ratio' },
+            { id: 'analyst', label: '애널리스트' },
           ].map(v => (
             <button
               key={v.id}
@@ -398,6 +568,11 @@ export default function UsOptionsTab({ initialSymbol, onSymbolUsed }) {
             </>
           )}
         </div>
+      )}
+
+      {/* ── 애널리스트 뷰 ── */}
+      {view === 'analyst' && (
+        <AnalystView symbol={symbol} />
       )}
 
       {/* ── 옵션 체인 뷰 ── */}
