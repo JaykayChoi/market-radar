@@ -373,4 +373,50 @@ router.get('/options/pcr', async (req, res) => {
   }
 })
 
+// GET /api/yahoo/analyst?symbol=AAPL — 애널리스트 목표가 + 투자의견 히스토리
+router.get('/analyst', async (req, res) => {
+  try {
+    const { symbol } = req.query
+    if (!symbol) return res.status(400).json({ error: 'symbol 파라미터 필요' })
+    const sym = symbol.toUpperCase()
+
+    const auth = await getYfAuth()
+    const data = await fetch(
+      `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${sym}?modules=financialData,upgradeDowngradeHistory&crumb=${auth.crumb}`,
+      { headers: { ...HEADERS, Cookie: auth.cookie } }
+    ).then(r => {
+      if (!r.ok) throw new Error(`Yahoo quoteSummary 오류: ${r.status}`)
+      return r.json()
+    })
+
+    const result = data.quoteSummary?.result?.[0]
+    if (!result) return res.status(404).json({ error: `데이터 없음: ${sym}` })
+
+    const fd = result.financialData || {}
+    const hist = result.upgradeDowngradeHistory?.history || []
+
+    res.json({
+      symbol: sym,
+      summary: {
+        currentPrice:  fd.currentPrice?.raw ?? null,
+        targetMean:    fd.targetMeanPrice?.raw ?? null,
+        targetHigh:    fd.targetHighPrice?.raw ?? null,
+        targetLow:     fd.targetLowPrice?.raw ?? null,
+        recKey:        fd.recommendationKey ?? null,
+        recMean:       fd.recommendationMean?.raw ?? null,
+        analysts:      fd.numberOfAnalystOpinions?.raw ?? null,
+      },
+      ratings: hist.slice(0, 30).map(h => ({
+        date:     h.epochGradeDate ? new Date(h.epochGradeDate * 1000).toISOString().slice(0, 10) : null,
+        firm:     h.firm ?? '—',
+        toGrade:  h.toGrade ?? '—',
+        fromGrade: h.fromGrade ?? null,
+        action:   h.action ?? '—',
+      })),
+    })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 module.exports = router
