@@ -1,6 +1,17 @@
 import React, { useState, useMemo } from 'react'
 
-function formatValue(val, type) {
+function formatValue(val, type, row, col) {
+  if (type === 'link') {
+    const url = typeof col.href === 'function' ? col.href(row) : col.href
+    if (!url) return '-'
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
+      >
+        {col.linkLabel || '상세'}↗
+      </a>
+    )
+  }
   if (val === null || val === undefined) return '-'
   if (type === 'number') {
     return typeof val === 'number' ? val.toLocaleString('ko-KR') : val
@@ -87,7 +98,7 @@ export default function DataTable({ columns = [], data = [], loading = false, de
                     col.type === 'number' || col.type === 'percent' ? 'text-right' : 'text-left'
                   }`}
                 >
-                  {formatValue(row[col.key], col.type)}
+                  {formatValue(row[col.key], col.type, row, col)}
                 </td>
               ))}
             </tr>

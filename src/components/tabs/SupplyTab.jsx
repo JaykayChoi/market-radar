@@ -12,12 +12,14 @@ const COLUMNS = {
     { key: 'balance_qty',   label: '잔고수량',     type: 'number'  },
     { key: 'balance_amt',   label: '잔고금액(원)', type: 'number'  },
     { key: 'balance_ratio', label: '잔고비율',     type: 'percent' },
+    { key: '_link',         label: '',             type: 'link', href: row => `https://alphasquare.co.kr/home/stock-summary?code=${row.code}`, linkLabel: '종목' },
   ],
   short_trade: [
     { key: 'name',        label: '종목명',             type: 'text'    },
     { key: 'short_val',   label: '공매도거래대금(원)', type: 'number'  },
     { key: 'total_val',   label: '전체거래대금(원)',   type: 'number'  },
     { key: 'short_ratio', label: '공매도비율(%)',      type: 'percent' },
+    { key: '_link',       label: '',                   type: 'link', href: row => `https://alphasquare.co.kr/home/stock-summary?code=${row.code}`, linkLabel: '종목' },
   ],
 }
 

@@ -12,6 +12,7 @@ const COLUMNS = [
   { key: 'net_change_pct',  label: '순자산변화(%)',   type: 'percent' },
   { key: 'return_pct',      label: '수익률(%)',       type: 'percent' },
   { key: 'total_asset',     label: '순자산총액(억)',  type: 'number' },
+  { key: '_link',            label: '',                type: 'link', href: row => `https://alphasquare.co.kr/home/stock-summary?code=${row.code}`, linkLabel: '종목' },
 ]
 
 export default function EtfTab({ dateRange }) {

@@ -21,6 +21,7 @@ const COLUMNS = [
   { key: 'name', label: '종목명', type: 'text' },
   { key: 'net_val_eok', label: '순매수금액(억원)', type: 'number' },
   { key: 'net_vol', label: '순매수량', type: 'number' },
+  { key: '_link',    label: '',        type: 'link', href: row => `https://alphasquare.co.kr/home/stock-summary?code=${row.code}`, linkLabel: '종목' },
 ]
 
 export default function InvestorTab({ dateRange }) {

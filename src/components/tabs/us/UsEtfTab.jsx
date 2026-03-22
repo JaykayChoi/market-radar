@@ -118,6 +118,7 @@ export default function UsEtfTab() {
               <SortTh col="perf1W"    label="1W%" />
               <SortTh col="perf1M"    label="1M%" />
               <SortTh col="perf3M"    label="3M%" />
+              <th className="px-3 py-2 text-center text-xs font-semibold text-gray-500 w-12"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 bg-white">
@@ -134,6 +135,15 @@ export default function UsEtfTab() {
                 <PctCell v={etf.perf1W} />
                 <PctCell v={etf.perf1M} />
                 <PctCell v={etf.perf3M} />
+                <td className="px-3 py-2 text-center">
+                  <a href={`https://www.chartmill.com/stock/quote/${etf.symbol}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+                    title={`${etf.symbol} Chartmill 분석`}
+                  >
+                    상세↗
+                  </a>
+                </td>
               </tr>
             ))}
           </tbody>

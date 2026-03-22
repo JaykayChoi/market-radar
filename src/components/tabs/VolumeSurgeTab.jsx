@@ -9,6 +9,7 @@ const COLUMNS = [
   { key: 'volume',      label: '거래량',        type: 'number'  },
   { key: 'prev_volume', label: '전일거래량',    type: 'number'  },
   { key: 'per',         label: 'PER',           type: 'number'  },
+  { key: '_link',       label: '',              type: 'link', href: row => `https://alphasquare.co.kr/home/stock-summary?code=${row.code}`, linkLabel: '종목' },
 ]
 
 const MARKETS = [

@@ -207,7 +207,7 @@ export default function UsStockTab({ onViewOptions }) {
                           <span className="text-[9px] text-gray-400 w-7 text-right">{w52pct.toFixed(0)}%</span>
                         </div>
                       </td>
-                      <td className="px-2 py-1.5 text-center">
+                      <td className="px-2 py-1.5 text-center whitespace-nowrap">
                         <button
                           onClick={() => onViewOptions?.(s.symbol)}
                           className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors"
@@ -215,6 +215,13 @@ export default function UsStockTab({ onViewOptions }) {
                         >
                           옵션
                         </button>
+                        <a href={`https://www.chartmill.com/stock/quote/${s.symbol}`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors inline-block"
+                          title={`${s.symbol} Chartmill 분석`}
+                        >
+                          상세↗
+                        </a>
                       </td>
                     </tr>
                   )

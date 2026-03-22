@@ -279,6 +279,7 @@ export default function UsShortTab() {
                       <SortTh k="shortInterest" label="Short Interest" />
                       <SortTh k="marketCap" label="시가총액" />
                       <th className="px-2 py-2 text-right text-[10px] font-semibold text-gray-500">변동</th>
+                      <th className="px-2 py-2 text-center text-[10px] font-semibold text-gray-500 w-10"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -317,6 +318,15 @@ export default function UsShortTab() {
                           <td className="px-2 py-2 text-right text-gray-500">{fmtCap(s.marketCap)}</td>
                           <td className={`px-2 py-2 text-right font-medium ${chg >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
                             {s.prevShortInterest ? `${chg >= 0 ? '+' : ''}${chg.toFixed(1)}%` : '—'}
+                          </td>
+                          <td className="px-2 py-2 text-center">
+                            <a href={`https://www.chartmill.com/stock/quote/${s.symbol}`}
+                              target="_blank" rel="noopener noreferrer"
+                              className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+                              title={`${s.symbol} Chartmill 분석`}
+                            >
+                              상세↗
+                            </a>
                           </td>
                         </tr>
                       )
@@ -424,16 +434,21 @@ export default function UsShortTab() {
                 )}
 
                 {/* 외부 링크 */}
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <a href={`https://www.chartmill.com/stock/quote/${detail.symbol}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="flex-1 text-center px-2 py-1.5 text-[10px] font-medium bg-purple-50 text-purple-600 rounded border border-purple-200 hover:bg-purple-100 transition-colors">
+                    Chartmill 분석
+                  </a>
                   <a href={`https://www.nasdaq.com/market-activity/stocks/${detail.symbol.toLowerCase()}/short-interest`}
                     target="_blank" rel="noopener noreferrer"
                     className="flex-1 text-center px-2 py-1.5 text-[10px] font-medium bg-blue-50 text-blue-600 rounded border border-blue-200 hover:bg-blue-100 transition-colors">
-                    Nasdaq 공매도 추이
+                    Nasdaq 공매도
                   </a>
                   <a href={`https://finviz.com/quote.ashx?t=${detail.symbol}`}
                     target="_blank" rel="noopener noreferrer"
                     className="flex-1 text-center px-2 py-1.5 text-[10px] font-medium bg-green-50 text-green-600 rounded border border-green-200 hover:bg-green-100 transition-colors">
-                    Finviz 종목 분석
+                    Finviz 분석
                   </a>
                 </div>
 
