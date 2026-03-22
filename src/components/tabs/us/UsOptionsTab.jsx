@@ -164,6 +164,29 @@ export default function UsOptionsTab() {
   const [loading, setLoading]         = useState(false)
   const [error, setError]             = useState(null)
   const [view, setView]               = useState('chain')
+  const [pcrData, setPcrData]         = useState(null)
+  const [pcrLoading, setPcrLoading]   = useState(false)
+  const [pcrError, setPcrError]       = useState(null)
+
+  // P/C Ratio fetch
+  useEffect(() => {
+    if (view !== 'pcr') return
+    setPcrLoading(true)
+    setPcrError(null)
+    setPcrData(null)
+
+    fetch(`/api/yahoo/options/pcr?symbol=${symbol}`)
+      .then(r => {
+        if (!r.ok) throw new Error(`API 오류: ${r.status}`)
+        return r.json()
+      })
+      .then(data => {
+        if (data.error) throw new Error(data.error)
+        setPcrData(data)
+      })
+      .catch(e => setPcrError(e.message))
+      .finally(() => setPcrLoading(false))
+  }, [symbol, view])
 
   // 옵션 체인 fetch
   useEffect(() => {
@@ -236,6 +259,7 @@ export default function UsOptionsTab() {
         <div className="flex gap-1">
           {[
             { id: 'chain', label: '옵션 체인' },
+            { id: 'pcr',   label: 'Put/Call Ratio' },
           ].map(v => (
             <button
               key={v.id}
@@ -277,8 +301,99 @@ export default function UsOptionsTab() {
         </div>
       </div>
 
+      {/* ── P/C Ratio 뷰 ── */}
+      {view === 'pcr' && (
+        <div>
+          {pcrLoading && (
+            <div className="flex items-center justify-center py-20 bg-white rounded-lg border border-gray-200">
+              <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-3" />
+              <span className="text-sm text-gray-500">{symbol} 만기일별 P/C Ratio 계산 중...</span>
+            </div>
+          )}
+          {!pcrLoading && pcrError && (
+            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-lg border border-gray-200">
+              <p className="text-3xl mb-2">⚠️</p>
+              <p className="font-medium text-gray-600">P/C Ratio 로드 실패</p>
+              <p className="text-xs text-red-500 mt-1">{pcrError}</p>
+            </div>
+          )}
+          {!pcrLoading && !pcrError && pcrData && (
+            <>
+              <h2 className="text-lg font-bold text-gray-900 mb-3">
+                {pcrData.name} <span className="text-sm text-gray-400">{pcrData.symbol}</span>
+                <span className="ml-2 text-base font-normal text-gray-500">${fmtNum(pcrData.price)}</span>
+              </h2>
+
+              {/* 전체 요약 카드 */}
+              <div className="grid grid-cols-4 gap-3 mb-4">
+                {[
+                  { label: 'P/C (거래량)', value: fmtNum(pcrData.overall.pcrVol), color: pcrColor(pcrData.overall.pcrVol), sub: pcrLabel(pcrData.overall.pcrVol) },
+                  { label: 'P/C (미결제)', value: fmtNum(pcrData.overall.pcrOI), color: pcrColor(pcrData.overall.pcrOI), sub: pcrLabel(pcrData.overall.pcrOI) },
+                  { label: '총 콜 거래량', value: fmtVol(pcrData.overall.totalCallVol), color: 'text-green-600', sub: `OI: ${fmtVol(pcrData.overall.totalCallOI)}` },
+                  { label: '총 풋 거래량', value: fmtVol(pcrData.overall.totalPutVol), color: 'text-red-600', sub: `OI: ${fmtVol(pcrData.overall.totalPutOI)}` },
+                ].map(({ label, value, color, sub }) => (
+                  <div key={label} className="bg-white rounded-lg border border-gray-200 p-3 text-center shadow-sm">
+                    <p className="text-xs text-gray-400 mb-1">{label}</p>
+                    <p className={`text-xl font-bold ${color}`}>{value}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* 만기일별 테이블 */}
+              <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">만기일</th>
+                      <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase">콜 거래량</th>
+                      <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase">풋 거래량</th>
+                      <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase">P/C 거래량</th>
+                      <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase">콜 OI</th>
+                      <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase">풋 OI</th>
+                      <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase">P/C OI</th>
+                      <th className="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase">심리</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {pcrData.byExpiration.map(row => (
+                      <tr key={row.expiration} className="hover:bg-gray-50">
+                        <td className="px-4 py-2 text-gray-700 font-medium">{row.expiration}</td>
+                        <td className="px-4 py-2 text-right text-green-600">{fmtVol(row.callVol)}</td>
+                        <td className="px-4 py-2 text-right text-red-600">{fmtVol(row.putVol)}</td>
+                        <td className={`px-4 py-2 text-right font-bold ${pcrColor(row.pcrVol ?? 0)}`}>{row.pcrVol != null ? fmtNum(row.pcrVol) : '—'}</td>
+                        <td className="px-4 py-2 text-right text-green-600">{fmtVol(row.callOI)}</td>
+                        <td className="px-4 py-2 text-right text-red-600">{fmtVol(row.putOI)}</td>
+                        <td className={`px-4 py-2 text-right font-bold ${pcrColor(row.pcrOI ?? 0)}`}>{row.pcrOI != null ? fmtNum(row.pcrOI) : '—'}</td>
+                        <td className="px-4 py-2 text-center">
+                          {row.pcrVol != null && (
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                              row.pcrVol >= 1.0 ? 'bg-red-100 text-red-700' :
+                              row.pcrVol >= 0.7 ? 'bg-gray-100 text-gray-600' :
+                              'bg-green-100 text-green-700'
+                            }`}>
+                              {pcrLabel(row.pcrVol)}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <p className="text-xs text-gray-400 mt-2">
+                ※ {symbol} 옵션 기준 만기일별 P/C Ratio. 거래량 기반 + OI 기반 두 가지 관점. Yahoo Finance 데이터.
+              </p>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── 옵션 체인 뷰 ── */}
+
       {/* 로딩 */}
-      {loading && (
+      {view === 'chain' && loading && (
         <div className="flex items-center justify-center py-20 bg-white rounded-lg border border-gray-200">
           <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-3" />
           <span className="text-sm text-gray-500">{symbol} 옵션 데이터 로딩 중...</span>
@@ -286,7 +401,7 @@ export default function UsOptionsTab() {
       )}
 
       {/* 에러 */}
-      {!loading && error && (
+      {view === 'chain' && !loading && error && (
         <div className="flex flex-col items-center justify-center py-20 bg-white rounded-lg border border-gray-200">
           <p className="text-3xl mb-2">⚠️</p>
           <p className="font-medium text-gray-600">옵션 데이터 로드 실패</p>
@@ -295,7 +410,7 @@ export default function UsOptionsTab() {
       )}
 
       {/* 옵션 체인 */}
-      {!loading && !error && chain && (
+      {view === 'chain' && !loading && !error && chain && (
         <div>
           {/* 종목 정보 + 만기 선택 */}
           <div className="flex items-center justify-between mb-3">

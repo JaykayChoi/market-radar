@@ -178,4 +178,76 @@ router.get('/options', async (req, res) => {
   }
 })
 
+// GET /api/yahoo/options/pcr?symbol=SPY — 만기일별 P/C Ratio 요약
+// 가장 가까운 만기일 최대 8개에 대해 P/C ratio 계산
+router.get('/options/pcr', async (req, res) => {
+  try {
+    const { symbol = 'SPY' } = req.query
+    const sym = symbol.toUpperCase()
+
+    const auth = await getYfAuth()
+    // 먼저 만기일 목록 가져오기 (기본 호출)
+    const baseData = await fetch(
+      `https://query2.finance.yahoo.com/v7/finance/options/${sym}?crumb=${auth.crumb}`,
+      { headers: { ...HEADERS, Cookie: auth.cookie } }
+    ).then(r => {
+      if (!r.ok) throw new Error(`Yahoo options 오류: ${r.status}`)
+      return r.json()
+    })
+
+    const result = baseData.optionChain?.result?.[0]
+    if (!result) return res.status(404).json({ error: `옵션 데이터 없음: ${sym}` })
+
+    const expirations = (result.expirationDates || []).slice(0, 8)
+    const quote = result.quote || {}
+
+    // 각 만기일별 P/C ratio 계산 (병렬)
+    const pcrData = await Promise.allSettled(expirations.map(async (ts) => {
+      const d = await fetch(
+        `https://query2.finance.yahoo.com/v7/finance/options/${sym}?date=${ts}&crumb=${auth.crumb}`,
+        { headers: { ...HEADERS, Cookie: auth.cookie } }
+      ).then(r => r.ok ? r.json() : null)
+
+      const opts = d?.optionChain?.result?.[0]?.options?.[0]
+      if (!opts) return null
+
+      const callVol = (opts.calls || []).reduce((s, c) => s + (c.volume || 0), 0)
+      const putVol  = (opts.puts  || []).reduce((s, p) => s + (p.volume || 0), 0)
+      const callOI  = (opts.calls || []).reduce((s, c) => s + (c.openInterest || 0), 0)
+      const putOI   = (opts.puts  || []).reduce((s, p) => s + (p.openInterest || 0), 0)
+
+      return {
+        expiration: new Date(ts * 1000).toISOString().slice(0, 10),
+        callVol, putVol, callOI, putOI,
+        pcrVol: callVol > 0 ? parseFloat((putVol / callVol).toFixed(3)) : null,
+        pcrOI:  callOI > 0  ? parseFloat((putOI / callOI).toFixed(3))  : null,
+      }
+    }))
+
+    const rows = pcrData
+      .filter(r => r.status === 'fulfilled' && r.value)
+      .map(r => r.value)
+
+    // 전체 합산
+    const totalCallVol = rows.reduce((s, r) => s + r.callVol, 0)
+    const totalPutVol  = rows.reduce((s, r) => s + r.putVol, 0)
+    const totalCallOI  = rows.reduce((s, r) => s + r.callOI, 0)
+    const totalPutOI   = rows.reduce((s, r) => s + r.putOI, 0)
+
+    res.json({
+      symbol: sym,
+      price: quote.regularMarketPrice,
+      name: quote.shortName || sym,
+      overall: {
+        pcrVol: totalCallVol > 0 ? parseFloat((totalPutVol / totalCallVol).toFixed(3)) : null,
+        pcrOI:  totalCallOI > 0  ? parseFloat((totalPutOI / totalCallOI).toFixed(3))  : null,
+        totalCallVol, totalPutVol, totalCallOI, totalPutOI,
+      },
+      byExpiration: rows,
+    })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 module.exports = router
